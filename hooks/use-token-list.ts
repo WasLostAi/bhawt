@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react"
 import { useQuery } from "@tanstack/react-query"
-import { apiClient, API_ENDPOINTS } from "@/services/api-client"
 import { queryKeys } from "@/lib/query-client"
 
 export interface Token {
@@ -31,11 +30,99 @@ export interface UseTokenListOptions {
   searchQuery?: string
 }
 
+// Mock token data
+const mockTokens: Token[] = [
+  {
+    address: "So11111111111111111111111111111111111111112",
+    symbol: "SOL",
+    name: "Solana",
+    decimals: 9,
+    tags: ["verified"],
+  },
+  {
+    address: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+    symbol: "USDC",
+    name: "USD Coin",
+    decimals: 6,
+    tags: ["verified", "stablecoin"],
+  },
+  {
+    address: "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB",
+    symbol: "USDT",
+    name: "Tether USD",
+    decimals: 6,
+    tags: ["verified", "stablecoin"],
+  },
+  {
+    address: "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263",
+    symbol: "BONK",
+    name: "Bonk",
+    decimals: 5,
+    tags: ["verified", "meme"],
+  },
+  {
+    address: "EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm",
+    symbol: "WIF",
+    name: "Dogwifhat",
+    decimals: 6,
+    tags: ["verified", "meme"],
+  },
+  {
+    address: "7kbnb9z9PJVt9wUVe6TzJez3eSVP7dZEL9h6Gqh3zHAE",
+    symbol: "JTO",
+    name: "Jito",
+    decimals: 9,
+    tags: ["verified"],
+  },
+  {
+    address: "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
+    symbol: "JUP",
+    name: "Jupiter",
+    decimals: 6,
+    tags: ["verified"],
+  },
+  {
+    address: "bSo13r4TkiE4KumL71LsHTPpL2euBYLFx6h9HP3piy1",
+    symbol: "BOME",
+    name: "Book of Meme",
+    decimals: 6,
+    tags: ["verified", "meme"],
+  },
+  {
+    address: "mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So",
+    symbol: "mSOL",
+    name: "Marinade staked SOL",
+    decimals: 9,
+    tags: ["verified", "lsd"],
+  },
+  {
+    address: "7vfCXTUXx5WJV5JADk17DUJ4ksgau7utNKj4b963voxs",
+    symbol: "ETH",
+    name: "Ethereum (Wormhole)",
+    decimals: 8,
+    tags: ["verified", "wormhole"],
+  },
+  {
+    address: "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R",
+    symbol: "RAY",
+    name: "Raydium",
+    decimals: 6,
+    tags: ["verified"],
+  },
+  {
+    address: "orcaEKTdK7LKz57vaAYr9QeNsVEPfiu6QeMU1kektZE",
+    symbol: "ORCA",
+    name: "Orca",
+    decimals: 6,
+    tags: ["verified"],
+  },
+]
+
 export function useTokenList(options: UseTokenListOptions = {}) {
   const { onlyVerified = true, includeUnknown = false, filterByTag, searchQuery } = options
   const [filteredTokens, setFilteredTokens] = useState<Token[]>([])
 
-  // Fetch token list from Jupiter API
+  // Use mock data instead of API call
   const {
     data: tokenList,
     isLoading,
@@ -44,8 +131,12 @@ export function useTokenList(options: UseTokenListOptions = {}) {
   } = useQuery({
     queryKey: queryKeys.tokens.all,
     queryFn: async () => {
-      const response = await apiClient.get<TokenList>(API_ENDPOINTS.jupiter.tokens)
-      return response
+      // Return mock token list
+      return {
+        name: "Mock Token List",
+        timestamp: new Date().toISOString(),
+        tokens: mockTokens,
+      } as TokenList
     },
     staleTime: 1000 * 60 * 60, // 1 hour
   })
@@ -61,7 +152,7 @@ export function useTokenList(options: UseTokenListOptions = {}) {
 
     // Filter by verified status
     if (onlyVerified) {
-      filtered = filtered.filter((token) => !token.tags?.includes("unverified"))
+      filtered = filtered.filter((token) => token.tags?.includes("verified"))
     }
 
     // Filter by tag

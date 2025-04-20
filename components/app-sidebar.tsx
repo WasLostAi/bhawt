@@ -13,6 +13,7 @@ import {
   ChevronRight,
   Menu,
   X,
+  FileText,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import WalletConnect from "./wallet-connect"
@@ -60,6 +61,11 @@ export function AppSidebar({ activeTab, handleTabChange }: SidebarProps) {
       id: "perpetuals",
       label: "Perpetuals",
       icon: BarChart3,
+    },
+    {
+      id: "manifesto",
+      label: "Manifesto",
+      icon: FileText,
     },
     {
       id: "analytics",

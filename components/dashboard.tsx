@@ -73,6 +73,12 @@ export function Dashboard() {
 
         {activeTab === "perpetuals" && <PerpetualArbitrage />}
 
+        {activeTab === "manifesto" && (
+          <div className="mt-4">
+            <iframe src="/manifesto" className="w-full h-[calc(100vh-8rem)] border-none" />
+          </div>
+        )}
+
         {activeTab === "settings" && <ConfigPanel />}
 
         {activeTab === "analytics" && <TokenAnalytics />}
