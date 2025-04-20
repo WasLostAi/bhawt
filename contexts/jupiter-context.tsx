@@ -53,7 +53,7 @@ export function JupiterProvider({ children }: { children: ReactNode }) {
     lastUpdated: new Date(),
   })
 
-  // Mock function to get token quote
+  // Update the getTokenQuote function to handle errors better
   const getTokenQuote = async (
     inputMint: string,
     outputMint: string,
@@ -87,6 +87,7 @@ export function JupiterProvider({ children }: { children: ReactNode }) {
       setIsLoading(false)
       return { success: true, data: response }
     } catch (err: any) {
+      console.error("Error in getTokenQuote:", err)
       setIsLoading(false)
       setError(err)
       return { success: false, error: err }

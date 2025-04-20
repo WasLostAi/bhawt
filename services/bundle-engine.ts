@@ -116,8 +116,8 @@ class BundleEngine {
       priorityLevel: "medium",
     },
   ) {
-    // Check if Jito bundles are enabled
-    this.isConnected = ENV.isEnabled("ENABLE_JITO_BUNDLES")
+    // Force isConnected to true but don't use actual Jito functionality
+    this.isConnected = true
 
     // Initialize with default options from environment
     this.defaultOptions = {

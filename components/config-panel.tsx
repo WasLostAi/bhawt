@@ -17,7 +17,7 @@ import QuickNodeConfig from "./quicknode-config"
 export default function ConfigPanel() {
   const [priorityFee, setPriorityFee] = useState(Number(ENV.get("DEFAULT_PRIORITY_FEE", "250000")) / 1_000_000_000)
   const [maxAccounts, setMaxAccounts] = useState(Number(ENV.get("MAX_ACCOUNTS", "64")))
-  const [useJito, setUseJito] = useState(ENV.isEnabled("ENABLE_JITO_BUNDLES"))
+  const [useJito, setUseJito] = useState(false)
   const [useBundling, setUseBundling] = useState(true)
   const [simulateLocally, setSimulateLocally] = useState(true)
   const [rpcEndpoint, setRpcEndpoint] = useState(

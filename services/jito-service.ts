@@ -28,9 +28,8 @@ export class JitoBundleService {
     // We'll check if Jito is enabled, but not store the API key
     this.isConnected = ENV.isEnabled("ENABLE_JITO_BUNDLES")
 
-    // For demo purposes, we'll always set isConnected to true
-    // In production, this would depend on a valid API key
-    this.isConnected = true
+    // Force isConnected to false to suspend Jito functionality
+    this.isConnected = false
   }
 
   // Send a bundle of transactions

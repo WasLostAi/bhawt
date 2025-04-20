@@ -86,15 +86,19 @@ export default function TargetManagement({ setActiveTargets }: TargetProps) {
           setTargets([...updatedTargets])
 
           try {
+            // Wrap the entire API call in a try-catch
             const quoteResult = await getTokenQuote(
               SOL_MINT,
               updatedTargets[i].mintAddress,
               1_000_000_000, // 1 SOL in lamports
               100, // 1% slippage
               true, // Only direct routes
-            )
+            ).catch((err) => {
+              console.error(`Error fetching quote: ${err.message}`)
+              return { success: false, error: err }
+            })
 
-            if (quoteResult.success && quoteResult.data) {
+            if (quoteResult && quoteResult.success && quoteResult.data) {
               const outAmount = Number.parseInt(quoteResult.data.outAmount)
               const price = 1_000_000_000 / outAmount
 
