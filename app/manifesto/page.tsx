@@ -2,8 +2,8 @@ import type { Metadata } from "next"
 import ManifestoClientPage from "./ManifestoClientPage"
 
 export const metadata: Metadata = {
-  title: "BHAWT - Manifesto",
-  description: "Comprehensive overview of BHAWT's functionality",
+  title: "BLK BOX - Manifesto",
+  description: "Comprehensive overview of BLK BOX's functionality",
 }
 
 export default function ManifestoPage() {

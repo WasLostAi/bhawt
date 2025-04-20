@@ -18,7 +18,7 @@ const syne = Syne({
 })
 
 export const metadata: Metadata = {
-  title: "BHAWT",
+  title: "BLK BOX",
   description: "Advanced Solana token sniping and trading bot",
     generator: 'v0.dev'
 }

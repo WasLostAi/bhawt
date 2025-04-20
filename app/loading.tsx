@@ -9,7 +9,7 @@ export default function Loading() {
         </div>
         <div className="flex items-center space-x-2">
           <Loader2 className="h-5 w-5 text-[#22CCEE] animate-spin" />
-          <p className="text-lg font-syne">Loading BHAWT...</p>
+          <p className="text-lg font-syne">Loading BLK BOX...</p>
         </div>
       </div>
     </div>

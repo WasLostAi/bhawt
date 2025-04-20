@@ -105,7 +105,7 @@ export function AppSidebar({ activeTab, handleTabChange }: SidebarProps) {
           {/* Logo */}
           <div className="p-6 border-b border-[#30302e]">
             <h1 className="text-2xl font-bold font-syne bg-gradient-to-r from-[#22CCEE] to-[#A4D756] text-transparent bg-clip-text">
-              BHAWT
+              BLK BOX
             </h1>
           </div>
 

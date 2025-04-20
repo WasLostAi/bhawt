@@ -16,7 +16,7 @@ export default function NotFound() {
         >
           <Link href="/">
             <Home className="mr-2 h-4 w-4" />
-            Return to BHAWT
+            Return to BLK BOX
           </Link>
         </Button>
       </div>
