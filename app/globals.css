@@ -62,3 +62,40 @@
     font-family: var(--font-syne), system-ui, sans-serif;
   }
 }
+
+/* Sidebar styling - using direct classes instead of @apply */
+[data-sidebar="menu-button"][data-active="true"] {
+  background: linear-gradient(to right, rgba(0, 182, 231, 0.1), rgba(164, 215, 86, 0.1));
+  border-left: 2px solid #22ccee;
+}
+
+[data-sidebar="group-label"] {
+  color: #22ccee;
+  font-weight: 500;
+}
+
+[data-sidebar="menu-button"]:hover {
+  background-color: #1d1d1c;
+  color: white;
+}
+
+[data-sidebar="rail"]:hover {
+  background-color: rgba(34, 204, 238, 0.2);
+}
+
+/* Collapsed sidebar icon styling */
+[data-collapsible="icon"] [data-sidebar="menu-button"] {
+  justify-content: center;
+}
+
+[data-collapsible="icon"] [data-sidebar="menu-button"] > span {
+  display: none;
+}
+
+/* Mobile sidebar styling */
+@media (max-width: 768px) {
+  [data-sidebar="sidebar"] {
+    border-radius: 0;
+    border-right: 0;
+  }
+}

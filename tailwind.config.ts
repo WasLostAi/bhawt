@@ -69,6 +69,15 @@ const config: Config = {
         gunmetal: "#30302e",
         steel: "#707070",
         cloud: "#e8f9ff",
+        // Sidebar colors
+        sidebar: {
+          DEFAULT: "#0C0C0C",
+          foreground: "#ffffff",
+          border: "#30302e",
+          accent: "#1d1d1c",
+          "accent-foreground": "#ffffff",
+          ring: "#22CCEE",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",
