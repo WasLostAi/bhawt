@@ -439,16 +439,16 @@ export default function PoolMonitor() {
                       )}
                     </div>
 
-                    <DialogFooter>
+                    <DialogFooter className="flex justify-end gap-3 mt-6">
                       <Button
                         variant="outline"
-                        className="bg-[#1d1d1c] border-[#30302e]"
+                        className="bg-[#1d1d1c] border-[#30302e] hover:bg-[#30302e] text-white"
                         onClick={() => setIsDialogOpen(false)}
                       >
                         Cancel
                       </Button>
                       <Button
-                        className="bg-gradient-to-r from-[#00B6E7] to-[#A4D756] hover:opacity-90 text-[#0C0C0C] font-medium"
+                        className="bg-gradient-to-r from-[#00B6E7] to-[#A4D756] hover:opacity-90 text-[#0C0C0C] font-medium min-w-[140px]"
                         onClick={handleStartMonitor}
                       >
                         Start Monitoring

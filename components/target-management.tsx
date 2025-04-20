@@ -84,13 +84,26 @@ export default function TargetManagement({ setActiveTargets }: TargetProps) {
         return
       }
 
+      // Create a copy of the targets to work with
       const updatedTargets = [...targets]
+      let hasChanges = false
 
       for (let i = 0; i < updatedTargets.length; i++) {
         if (updatedTargets[i].active) {
+          // Mark as loading without updating state yet
           updatedTargets[i].priceLoading = true
-          setTargets([...updatedTargets])
+          hasChanges = true
+        }
+      }
 
+      // Only update state once before API calls if there are changes
+      if (hasChanges) {
+        setTargets([...updatedTargets])
+      }
+
+      // Process each target sequentially to avoid race conditions
+      for (let i = 0; i < updatedTargets.length; i++) {
+        if (updatedTargets[i].active) {
           try {
             // Wrap the entire API call in a try-catch
             const quoteResult = await getTokenQuote(
@@ -104,6 +117,7 @@ export default function TargetManagement({ setActiveTargets }: TargetProps) {
               return { success: false, error: err }
             })
 
+            // Update the specific target with the result
             if (quoteResult && quoteResult.success && quoteResult.data) {
               const outAmount = Number.parseInt(quoteResult.data.outAmount)
               const price = 1_000_000_000 / outAmount
@@ -120,10 +134,11 @@ export default function TargetManagement({ setActiveTargets }: TargetProps) {
             updatedTargets[i].priceLoading = false
             updatedTargets[i].priceError = true
           }
-
-          setTargets([...updatedTargets])
         }
       }
+
+      // Update state once after all API calls are complete
+      setTargets([...updatedTargets])
     }
 
     fetchPrices()
@@ -132,7 +147,7 @@ export default function TargetManagement({ setActiveTargets }: TargetProps) {
     const interval = setInterval(fetchPrices, 30000)
 
     return () => clearInterval(interval)
-  }, [targets, getTokenQuote])
+  }, [getTokenQuote]) // Only depend on getTokenQuote, not targets
 
   const handleAddTarget = () => {
     if (!newTarget.name || !newTarget.mintAddress) return
@@ -167,36 +182,41 @@ export default function TargetManagement({ setActiveTargets }: TargetProps) {
     setActiveTargets(activeCount)
     console.log(`Updated active targets count: ${activeCount}`)
 
-    // Fetch price for the new target
-    getTokenQuote(
-      SOL_MINT,
-      target.mintAddress,
-      1_000_000_000, // 1 SOL in lamports
-      100, // 1% slippage
-      true, // Only direct routes
-    )
-      .then((quoteResult) => {
-        if (quoteResult.success && quoteResult.data) {
-          const outAmount = Number.parseInt(quoteResult.data.outAmount)
-          const price = 1_000_000_000 / outAmount
-
-          setTargets((prev) =>
-            prev.map((t) =>
-              t.id === target.id ? { ...t, currentPrice: price, priceLoading: false, priceError: false } : t,
-            ),
-          )
-        } else {
-          setTargets((prev) =>
-            prev.map((t) => (t.id === target.id ? { ...t, priceLoading: false, priceError: true } : t)),
-          )
-        }
-      })
-      .catch((err) => {
-        console.error(`Error fetching price for ${target.name}:`, err)
-        setTargets((prev) =>
-          prev.map((t) => (t.id === target.id ? { ...t, priceLoading: false, priceError: true } : t)),
+    // Fetch price for the new target in a separate effect
+    // This avoids updating state during render
+    setTimeout(() => {
+      if (getTokenQuote) {
+        getTokenQuote(
+          SOL_MINT,
+          target.mintAddress,
+          1_000_000_000, // 1 SOL in lamports
+          100, // 1% slippage
+          true, // Only direct routes
         )
-      })
+          .then((quoteResult) => {
+            if (quoteResult.success && quoteResult.data) {
+              const outAmount = Number.parseInt(quoteResult.data.outAmount)
+              const price = 1_000_000_000 / outAmount
+
+              setTargets((prev) =>
+                prev.map((t) =>
+                  t.id === target.id ? { ...t, currentPrice: price, priceLoading: false, priceError: false } : t,
+                ),
+              )
+            } else {
+              setTargets((prev) =>
+                prev.map((t) => (t.id === target.id ? { ...t, priceLoading: false, priceError: true } : t)),
+              )
+            }
+          })
+          .catch((err) => {
+            console.error(`Error fetching price for ${target.name}:`, err)
+            setTargets((prev) =>
+              prev.map((t) => (t.id === target.id ? { ...t, priceLoading: false, priceError: true } : t)),
+            )
+          })
+      }
+    }, 0)
   }
 
   const handleToggleActive = (id: string) => {
