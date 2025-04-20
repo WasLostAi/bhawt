@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Slider } from "@/components/ui/slider"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Plus, Trash2, Edit, Zap, AlertCircle } from "lucide-react"
+import { Plus, Trash2, Edit, Zap, AlertCircle, AlertTriangle } from "lucide-react"
 import { useJupiterContext } from "@/contexts/jupiter-context"
 import { useToast } from "@/components/ui/use-toast"
 
@@ -74,10 +74,16 @@ export default function TargetManagement({ setActiveTargets }: TargetProps) {
     maxSlippage: 1.0,
     active: true,
   })
+  const [componentError, setComponentError] = useState<Error | null>(null)
 
   // Fetch current prices for all targets
   useEffect(() => {
     const fetchPrices = async () => {
+      if (!getTokenQuote) {
+        console.error("getTokenQuote function is not available")
+        return
+      }
+
       const updatedTargets = [...targets]
 
       for (let i = 0; i < updatedTargets.length; i++) {
@@ -249,184 +255,195 @@ export default function TargetManagement({ setActiveTargets }: TargetProps) {
     console.log(`Updated active targets count: ${activeCount}`)
   }
 
-  return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-      <Card className="lg:col-span-2 bg-[#151514] border-[#30302e]">
-        <CardHeader>
-          <CardTitle className="text-xl font-[Syne]">Target Tokens</CardTitle>
-          <CardDescription>Configure tokens to snipe when conditions are met</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader className="bg-[#1d1d1c]">
-              <TableRow>
-                <TableHead className="w-[80px]">Active</TableHead>
-                <TableHead>Token</TableHead>
-                <TableHead>Current Price</TableHead>
-                <TableHead>Max Buy Price</TableHead>
-                <TableHead>Max Slippage</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {targets.map((target) => (
-                <TableRow key={target.id} className="border-[#30302e]">
-                  <TableCell>
-                    <Switch
-                      checked={target.active}
-                      onCheckedChange={() => handleToggleActive(target.id)}
-                      className="data-[state=checked]:bg-gradient-to-r from-[#00B6E7] to-[#A4D756]"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <div>
-                      <div className="font-medium">{target.name}</div>
-                      <div className="text-xs text-[#707070]">
-                        {target.mintAddress.substring(0, 6)}...
-                        {target.mintAddress.substring(target.mintAddress.length - 4)}
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    {target.priceLoading ? (
-                      <div className="flex items-center">
-                        <div className="h-3 w-3 mr-2 animate-spin rounded-full border-2 border-[#22CCEE] border-t-transparent"></div>
-                        <span>Loading...</span>
-                      </div>
-                    ) : target.priceError ? (
-                      <div className="flex items-center text-[#E57676]">
-                        <AlertCircle className="h-3 w-3 mr-1" />
-                        <span>Error</span>
-                      </div>
-                    ) : (
-                      <div
-                        className={
-                          target.currentPrice && target.currentPrice <= target.maxBuyPrice ? "text-[#76D484]" : ""
-                        }
-                      >
-                        {target.currentPrice?.toFixed(8) || "N/A"}
-                      </div>
-                    )}
-                  </TableCell>
-                  <TableCell>{target.maxBuyPrice.toFixed(8)}</TableCell>
-                  <TableCell>{target.maxSlippage}%</TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end space-x-2">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-[#22CCEE] hover:text-[#00B6E7]"
-                        onClick={() => handleSnipeTarget(target)}
-                        disabled={isLoading}
-                      >
-                        <Zap className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-red-500 hover:text-red-400"
-                        onClick={() => handleDeleteTarget(target.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
+  try {
+    return (
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <Card className="lg:col-span-2 bg-[#151514] border-[#30302e]">
+          <CardHeader>
+            <CardTitle className="text-xl font-[Syne]">Target Tokens</CardTitle>
+            <CardDescription>Configure tokens to snipe when conditions are met</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader className="bg-[#1d1d1c]">
+                <TableRow>
+                  <TableHead className="w-[80px]">Active</TableHead>
+                  <TableHead>Token</TableHead>
+                  <TableHead>Current Price</TableHead>
+                  <TableHead>Max Buy Price</TableHead>
+                  <TableHead>Max Slippage</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+              </TableHeader>
+              <TableBody>
+                {targets.map((target) => (
+                  <TableRow key={target.id} className="border-[#30302e]">
+                    <TableCell>
+                      <Switch
+                        checked={target.active}
+                        onCheckedChange={() => handleToggleActive(target.id)}
+                        className="data-[state=checked]:bg-gradient-to-r from-[#00B6E7] to-[#A4D756]"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <div>
+                        <div className="font-medium">{target.name}</div>
+                        <div className="text-xs text-[#707070]">
+                          {target.mintAddress.substring(0, 6)}...
+                          {target.mintAddress.substring(target.mintAddress.length - 4)}
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      {target.priceLoading ? (
+                        <div className="flex items-center">
+                          <div className="h-3 w-3 mr-2 animate-spin rounded-full border-2 border-[#22CCEE] border-t-transparent"></div>
+                          <span>Loading...</span>
+                        </div>
+                      ) : target.priceError ? (
+                        <div className="flex items-center text-[#E57676]">
+                          <AlertCircle className="h-3 w-3 mr-1" />
+                          <span>Error</span>
+                        </div>
+                      ) : (
+                        <div
+                          className={
+                            target.currentPrice && target.currentPrice <= target.maxBuyPrice ? "text-[#76D484]" : ""
+                          }
+                        >
+                          {target.currentPrice?.toFixed(8) || "N/A"}
+                        </div>
+                      )}
+                    </TableCell>
+                    <TableCell>{target.maxBuyPrice.toFixed(8)}</TableCell>
+                    <TableCell>{target.maxSlippage}%</TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end space-x-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-[#22CCEE] hover:text-[#00B6E7]"
+                          onClick={() => handleSnipeTarget(target)}
+                          disabled={isLoading}
+                        >
+                          <Zap className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-red-500 hover:text-red-400"
+                          onClick={() => handleDeleteTarget(target.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
 
-      <Card className="bg-[#151514] border-[#30302e]">
-        <CardHeader>
-          <CardTitle className="text-xl font-[Syne]">Add New Target</CardTitle>
-          <CardDescription>Configure parameters for token sniping</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="tokenName">Token Name</Label>
-              <Input
-                id="tokenName"
-                placeholder="e.g. BONK"
-                className="bg-[#1d1d1c] border-[#30302e]"
-                value={newTarget.name}
-                onChange={(e) => setNewTarget({ ...newTarget, name: e.target.value })}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="mintAddress">Mint Address</Label>
-              <Input
-                id="mintAddress"
-                placeholder="Token mint address"
-                className="bg-[#1d1d1c] border-[#30302e]"
-                value={newTarget.mintAddress}
-                onChange={(e) => setNewTarget({ ...newTarget, mintAddress: e.target.value })}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex justify-between">
-                <Label htmlFor="maxBuyPrice">Max Buy Price</Label>
-                <span className="text-sm text-[#707070]">{newTarget.maxBuyPrice?.toFixed(8)}</span>
+        <Card className="bg-[#151514] border-[#30302e]">
+          <CardHeader>
+            <CardTitle className="text-xl font-[Syne]">Add New Target</CardTitle>
+            <CardDescription>Configure parameters for token sniping</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="tokenName">Token Name</Label>
+                <Input
+                  id="tokenName"
+                  placeholder="e.g. BONK"
+                  className="bg-[#1d1d1c] border-[#30302e]"
+                  value={newTarget.name}
+                  onChange={(e) => setNewTarget({ ...newTarget, name: e.target.value })}
+                />
               </div>
-              <Slider
-                id="maxBuyPrice"
-                min={0.00000001}
-                max={0.001}
-                step={0.00000001}
-                value={[newTarget.maxBuyPrice || 0.0001]}
-                onValueChange={(value) => setNewTarget({ ...newTarget, maxBuyPrice: value[0] })}
-                className="[&>span]:bg-gradient-to-r [&>span]:from-[#00B6E7] [&>span]:to-[#A4D756]"
-              />
-            </div>
 
-            <div className="space-y-2">
-              <div className="flex justify-between">
-                <Label htmlFor="minLiquidity">Min Liquidity (USD)</Label>
-                <span className="text-sm text-[#707070]">${newTarget.minLiquidity?.toLocaleString()}</span>
+              <div className="space-y-2">
+                <Label htmlFor="mintAddress">Mint Address</Label>
+                <Input
+                  id="mintAddress"
+                  placeholder="Token mint address"
+                  className="bg-[#1d1d1c] border-[#30302e]"
+                  value={newTarget.mintAddress}
+                  onChange={(e) => setNewTarget({ ...newTarget, mintAddress: e.target.value })}
+                />
               </div>
-              <Slider
-                id="minLiquidity"
-                min={10000}
-                max={1000000}
-                step={10000}
-                value={[newTarget.minLiquidity || 100000]}
-                onValueChange={(value) => setNewTarget({ ...newTarget, minLiquidity: value[0] })}
-                className="[&>span]:bg-gradient-to-r [&>span]:from-[#22CCEE] [&>span]:to-[#2ED3B7]"
-              />
-            </div>
 
-            <div className="space-y-2">
-              <div className="flex justify-between">
-                <Label htmlFor="maxSlippage">Max Slippage (%)</Label>
-                <span className="text-sm text-[#707070]">{newTarget.maxSlippage}%</span>
+              <div className="space-y-2">
+                <div className="flex justify-between">
+                  <Label htmlFor="maxBuyPrice">Max Buy Price</Label>
+                  <span className="text-sm text-[#707070]">{newTarget.maxBuyPrice?.toFixed(8)}</span>
+                </div>
+                <Slider
+                  id="maxBuyPrice"
+                  min={0.00000001}
+                  max={0.001}
+                  step={0.00000001}
+                  value={[newTarget.maxBuyPrice || 0.0001]}
+                  onValueChange={(value) => setNewTarget({ ...newTarget, maxBuyPrice: value[0] })}
+                  className="[&>span]:bg-gradient-to-r [&>span]:from-[#00B6E7] [&>span]:to-[#A4D756]"
+                />
               </div>
-              <Slider
-                id="maxSlippage"
-                min={0.1}
-                max={5}
-                step={0.1}
-                value={[newTarget.maxSlippage || 1.0]}
-                onValueChange={(value) => setNewTarget({ ...newTarget, maxSlippage: value[0] })}
-                className="[&>span]:bg-gradient-to-r [&>span]:from-[#2ED3B7] [&>span]:to-[#C8F284]"
-              />
-            </div>
 
-            <Button
-              className="w-full bg-gradient-to-r from-[#00B6E7] to-[#A4D756] hover:opacity-90 text-[#0C0C0C] font-medium"
-              onClick={handleAddTarget}
-            >
-              <Plus className="mr-2 h-4 w-4" /> Add Target
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  )
+              <div className="space-y-2">
+                <div className="flex justify-between">
+                  <Label htmlFor="minLiquidity">Min Liquidity (USD)</Label>
+                  <span className="text-sm text-[#707070]">${newTarget.minLiquidity?.toLocaleString()}</span>
+                </div>
+                <Slider
+                  id="minLiquidity"
+                  min={10000}
+                  max={1000000}
+                  step={10000}
+                  value={[newTarget.minLiquidity || 100000]}
+                  onValueChange={(value) => setNewTarget({ ...newTarget, minLiquidity: value[0] })}
+                  className="[&>span]:bg-gradient-to-r [&>span]:from-[#22CCEE] [&>span]:to-[#2ED3B7]"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex justify-between">
+                  <Label htmlFor="maxSlippage">Max Slippage (%)</Label>
+                  <span className="text-sm text-[#707070]">{newTarget.maxSlippage}%</span>
+                </div>
+                <Slider
+                  id="maxSlippage"
+                  min={0.1}
+                  max={5}
+                  step={0.1}
+                  value={[newTarget.maxSlippage || 1.0]}
+                  onValueChange={(value) => setNewTarget({ ...newTarget, maxSlippage: value[0] })}
+                  className="[&>span]:bg-gradient-to-r [&>span]:from-[#2ED3B7] [&>span]:to-[#C8F284]"
+                />
+              </div>
+
+              <Button
+                className="w-full bg-gradient-to-r from-[#00B6E7] to-[#A4D756] hover:opacity-90 text-[#0C0C0C] font-medium"
+                onClick={handleAddTarget}
+              >
+                <Plus className="mr-2 h-4 w-4" /> Add Target
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  } catch (error) {
+    console.error("Error rendering TargetManagement:", error)
+    return (
+      <div className="p-8 text-center">
+        <AlertTriangle className="h-12 w-12 mx-auto mb-4 text-[#E57676]" />
+        <h3 className="text-xl font-medium mb-2">Component Error</h3>
+        <p className="text-[#707070]">{error instanceof Error ? error.message : "Unknown error occurred"}</p>
+      </div>
+    )
+  }
 }

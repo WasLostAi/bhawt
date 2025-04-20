@@ -31,6 +31,7 @@ import {
   Search,
   User,
   LogOut,
+  AlertTriangle,
 } from "lucide-react"
 import StatusBar from "./status-bar"
 import PoolMonitor from "./pool-monitor"
@@ -217,7 +218,27 @@ export default function Dashboard() {
               </div>
             )}
 
-            {activeTab === "targets" && <TargetManagement setActiveTargets={setActiveTargets} />}
+            {activeTab === "targets" && (
+              <div className="error-boundary">
+                {(() => {
+                  try {
+                    return <TargetManagement setActiveTargets={setActiveTargets} />
+                  } catch (error) {
+                    console.error("Error rendering TargetManagement:", error)
+                    return (
+                      <div className="p-8 text-center">
+                        <AlertTriangle className="h-12 w-12 mx-auto mb-4 text-[#E57676]" />
+                        <h3 className="text-xl font-medium mb-2">Error Loading Targets</h3>
+                        <p className="text-[#707070]">There was an error loading the target management component.</p>
+                        <Button className="mt-4 bg-[#22CCEE]" onClick={() => handleTabChange("overview")}>
+                          Return to Overview
+                        </Button>
+                      </div>
+                    )
+                  }
+                })()}
+              </div>
+            )}
 
             {activeTab === "transactions" && (
               <TransactionMonitor setPendingTxs={setPendingTxs} setSuccessfulSnipes={setSuccessfulSnipes} />
