@@ -1,284 +1,290 @@
-// Bollinger Bands Strategy
-import type { Connection } from "@solana/web3.js"
-import { EventEmitter } from "events"
+import { tokenFactory } from "@/services/token-factory"
+import { tradingEngine } from "@/services/trading-engine"
+import { performanceMonitor } from "@/services/performance-monitor"
 
-// Types for the strategy
-export interface BollingerBandsConfig {
+export interface BollingerBandsStrategyConfig {
   enabled: boolean
-  tokenMint: string
-  tokenSymbol?: string
-  inputAmount: number // In lamports
-  period: number // Number of periods for calculation
-  standardDeviations: number // Number of standard deviations
-  entryPercentage: number // Percentage from band to trigger entry
-  exitPercentage: number // Percentage from middle band to exit
-  cooldownPeriod: number // In milliseconds
-  slippage: number // In percentage
+  targetToken: string
+  baseToken: string
+  amount: string
+  period: number
+  standardDeviations: number
+  stopLoss: number
+  takeProfit: number
+  maxExecutions: number
 }
 
-export interface PricePoint {
-  time: number
-  open: number
-  high: number
-  low: number
-  close: number
-  volume: number
-}
-
-export interface BollingerBandsSignal {
-  tokenMint: string
-  tokenSymbol?: string
-  direction: "BUY" | "SELL"
-  price: number
-  reason: string
-  confidence: number // 0-100
-  timestamp: number
-  bands: {
-    upper: number
-    middle: number
-    lower: number
+export class BollingerBandsStrategy {
+  private config: BollingerBandsStrategyConfig
+  private priceHistory: number[]
+  private lastExecutionTime: number
+  private executionCount: number
+  private strategyId: string
+  private isRunning: boolean
+  private interval: NodeJS.Timeout | null
+  private position: {
+    inPosition: boolean
+    entryPrice: number
+    amount: number
   }
-}
 
-// Mock MetisPriceAPI for development (same as in breakout-strategy.ts)
-class MetisPriceAPI {
-  constructor(private connection: Connection) {}
-
-  async getOHLCV(tokenMint: string, timeframe: string): Promise<PricePoint[]> {
-    // In a real implementation, this would call QuickNode's Metis API
-    // For now, we'll return mock data
-
-    // Simulate API call delay
-    await new Promise((resolve) => setTimeout(resolve, 500))
-
-    // Generate mock OHLCV data
-    const now = Date.now()
-    const data: PricePoint[] = []
-
-    // Generate 24 hours of hourly data
-    for (let i = 24; i >= 0; i--) {
-      const basePrice = 0.00001 + Math.random() * 0.00001
-      const volatility = 0.1 // 10% volatility
-
-      const open = basePrice * (1 + (Math.random() * volatility * 2 - volatility))
-      const close = basePrice * (1 + (Math.random() * volatility * 2 - volatility))
-      const high = Math.max(open, close) * (1 + Math.random() * volatility)
-      const low = Math.min(open, close) * (1 - Math.random() * volatility)
-      const volume = Math.random() * 1000000 + 100000
-
-      data.push({
-        time: now - i * 3600000, // hourly data
-        open,
-        high,
-        low,
-        close,
-        volume,
-      })
+  constructor(config: BollingerBandsStrategyConfig) {
+    this.config = config
+    this.priceHistory = []
+    this.lastExecutionTime = 0
+    this.executionCount = 0
+    this.strategyId = `bollinger_${Date.now()}`
+    this.isRunning = false
+    this.interval = null
+    this.position = {
+      inPosition: false,
+      entryPrice: 0,
+      amount: 0,
     }
 
-    return data
+    // Register strategy with performance monitor
+    performanceMonitor.registerStrategy(this.strategyId, "Bollinger Bands Strategy")
   }
 
-  async getPrice(tokenMint: string): Promise<number> {
-    // In a real implementation, this would call QuickNode's Metis API
-    // For now, we'll return mock data
-
-    // Simulate API call delay
-    await new Promise((resolve) => setTimeout(resolve, 200))
-
-    // Return mock price
-    return 0.00001 + Math.random() * 0.000002
-  }
-}
-
-// Bollinger Bands Strategy class
-export class BollingerBandsStrategy extends EventEmitter {
-  private metisPriceAPI: MetisPriceAPI
-  private isMonitoring = false
-  private monitorInterval: NodeJS.Timeout | null = null
-  private lastSignalTime = 0
-  private lastBands: { upper: number; middle: number; lower: number } | null = null
-
-  constructor(
-    private connection: Connection,
-    private config: BollingerBandsConfig,
-  ) {
-    super()
-    this.metisPriceAPI = new MetisPriceAPI(connection)
-  }
-
-  // Start monitoring
-  public startMonitoring(): boolean {
-    if (this.isMonitoring) return false
-
-    this.isMonitoring = true
-    this.monitorInterval = setInterval(() => this.checkBollingerBands(), 15000) // Check every 15 seconds
-
-    // Initial check
-    this.checkBollingerBands()
-
-    return true
-  }
-
-  // Stop monitoring
-  public stopMonitoring(): boolean {
-    if (!this.isMonitoring) return false
-
-    this.isMonitoring = false
-    if (this.monitorInterval) {
-      clearInterval(this.monitorInterval)
-      this.monitorInterval = null
+  /**
+   * Start the strategy
+   */
+  start(): void {
+    if (this.isRunning || !this.config.enabled) {
+      return
     }
 
-    return true
+    this.isRunning = true
+
+    // Start monitoring price
+    this.interval = setInterval(() => this.monitor(), 10000) // Check every 10 seconds
+
+    console.log(`Bollinger Bands strategy started for ${this.config.targetToken}`)
   }
 
-  // Update configuration
-  public updateConfig(config: Partial<BollingerBandsConfig>): void {
-    this.config = { ...this.config, ...config }
-
-    // Reset bands if token or period changes
-    if (
-      (config.tokenMint && config.tokenMint !== this.config.tokenMint) ||
-      (config.period && config.period !== this.config.period)
-    ) {
-      this.lastBands = null
+  /**
+   * Stop the strategy
+   */
+  stop(): void {
+    if (!this.isRunning) {
+      return
     }
+
+    this.isRunning = false
+
+    if (this.interval) {
+      clearInterval(this.interval)
+      this.interval = null
+    }
+
+    console.log(`Bollinger Bands strategy stopped for ${this.config.targetToken}`)
   }
 
-  // Get current configuration
-  public getConfig(): BollingerBandsConfig {
-    return { ...this.config }
-  }
-
-  // Check Bollinger Bands
-  private async checkBollingerBands(): Promise<void> {
-    if (!this.config.enabled || !this.config.tokenMint) return
-
+  /**
+   * Monitor price for Bollinger Bands signals
+   */
+  private async monitor(): Promise<void> {
     try {
-      // Get OHLCV data
-      const prices = await this.metisPriceAPI.getOHLCV(this.config.tokenMint, "1H")
+      // Get current price
+      const currentPrice = await tokenFactory.getTokenPrice(this.config.targetToken)
+
+      // Add to price history
+      this.priceHistory.push(currentPrice)
+
+      // Keep only the necessary price points
+      if (this.priceHistory.length > this.config.period * 2) {
+        this.priceHistory.shift()
+      }
+
+      // Need at least 'period' price points to calculate Bollinger Bands
+      if (this.priceHistory.length < this.config.period) {
+        return
+      }
 
       // Calculate Bollinger Bands
-      const closePrices = prices.map((p) => p.close)
-      const period = Math.min(this.config.period, closePrices.length)
-      const recentPrices = closePrices.slice(-period)
+      const { middle, upper, lower } = this.calculateBollingerBands()
 
-      // Calculate middle band (SMA)
-      const middleBand = recentPrices.reduce((sum, price) => sum + price, 0) / period
-
-      // Calculate standard deviation
-      const squaredDifferences = recentPrices.map((price) => Math.pow(price - middleBand, 2))
-      const variance = squaredDifferences.reduce((sum, diff) => sum + diff, 0) / period
-      const standardDeviation = Math.sqrt(variance)
-
-      // Calculate upper and lower bands
-      const upperBand = middleBand + standardDeviation * this.config.standardDeviations
-      const lowerBand = middleBand - standardDeviation * this.config.standardDeviations
-
-      // Get current price
-      const currentPrice = await this.metisPriceAPI.getPrice(this.config.tokenMint)
-
-      // Store bands for reference
-      this.lastBands = { upper: upperBand, middle: middleBand, lower: lowerBand }
-
-      // Check cooldown period
-      const now = Date.now()
-      const cooldownElapsed = now - this.lastSignalTime > this.config.cooldownPeriod
-
-      if (cooldownElapsed) {
-        // Calculate entry thresholds
-        const upperEntryThreshold = upperBand * (1 - this.config.entryPercentage / 100)
-        const lowerEntryThreshold = lowerBand * (1 + this.config.entryPercentage / 100)
-
-        // Check for signals
-        if (currentPrice >= upperEntryThreshold && currentPrice <= upperBand) {
-          // Price approaching upper band - potential sell signal
-          const signal: BollingerBandsSignal = {
-            tokenMint: this.config.tokenMint,
-            tokenSymbol: this.config.tokenSymbol,
-            direction: "SELL",
-            price: currentPrice,
-            reason: `Price approaching upper Bollinger Band: ${currentPrice.toFixed(8)} near ${upperBand.toFixed(8)}`,
-            confidence: this.calculateConfidence(currentPrice, upperEntryThreshold, upperBand, true),
-            timestamp: now,
-            bands: { upper: upperBand, middle: middleBand, lower: lowerBand },
-          }
-
-          this.lastSignalTime = now
-          this.emit("signal", signal)
-        } else if (currentPrice <= lowerEntryThreshold && currentPrice >= lowerBand) {
-          // Price approaching lower band - potential buy signal
-          const signal: BollingerBandsSignal = {
-            tokenMint: this.config.tokenMint,
-            tokenSymbol: this.config.tokenSymbol,
-            direction: "BUY",
-            price: currentPrice,
-            reason: `Price approaching lower Bollinger Band: ${currentPrice.toFixed(8)} near ${lowerBand.toFixed(8)}`,
-            confidence: this.calculateConfidence(currentPrice, lowerEntryThreshold, lowerBand, false),
-            timestamp: now,
-            bands: { upper: upperBand, middle: middleBand, lower: lowerBand },
-          }
-
-          this.lastSignalTime = now
-          this.emit("signal", signal)
+      // Check for signals
+      if (!this.position.inPosition) {
+        // Look for buy signal (price below lower band)
+        if (currentPrice < lower) {
+          await this.executeBuyTrade(currentPrice)
         }
-        // Check for exit signals
-        else if (currentPrice >= middleBand * (1 + this.config.exitPercentage / 100)) {
-          // Price above middle band + exit percentage - potential exit for buys
-          const signal: BollingerBandsSignal = {
-            tokenMint: this.config.tokenMint,
-            tokenSymbol: this.config.tokenSymbol,
-            direction: "SELL",
-            price: currentPrice,
-            reason: `Exit signal: Price above middle band + ${this.config.exitPercentage}%`,
-            confidence: 80, // High confidence for exit signals
-            timestamp: now,
-            bands: { upper: upperBand, middle: middleBand, lower: lowerBand },
-          }
+      } else {
+        // Check for take profit or stop loss
+        const profitLoss = ((currentPrice - this.position.entryPrice) / this.position.entryPrice) * 100
 
-          this.lastSignalTime = now
-          this.emit("signal", signal)
-        } else if (currentPrice <= middleBand * (1 - this.config.exitPercentage / 100)) {
-          // Price below middle band - exit percentage - potential exit for sells
-          const signal: BollingerBandsSignal = {
-            tokenMint: this.config.tokenMint,
-            tokenSymbol: this.config.tokenSymbol,
-            direction: "BUY",
-            price: currentPrice,
-            reason: `Exit signal: Price below middle band - ${this.config.exitPercentage}%`,
-            confidence: 80, // High confidence for exit signals
-            timestamp: now,
-            bands: { upper: upperBand, middle: middleBand, lower: lowerBand },
-          }
-
-          this.lastSignalTime = now
-          this.emit("signal", signal)
+        if (profitLoss >= this.config.takeProfit || profitLoss <= -this.config.stopLoss || currentPrice > upper) {
+          await this.executeSellTrade(currentPrice, profitLoss)
         }
       }
     } catch (error) {
-      console.error("Error checking Bollinger Bands:", error)
-      this.emit("error", error)
+      console.error("Error in Bollinger Bands strategy monitor:", error)
     }
   }
 
-  // Calculate confidence score
-  private calculateConfidence(
-    currentPrice: number,
-    entryThreshold: number,
-    band: number,
-    isUpperBand: boolean,
-  ): number {
-    // Calculate how close to the band the price is
-    const distanceToThreshold = isUpperBand
-      ? (currentPrice - entryThreshold) / (band - entryThreshold)
-      : (entryThreshold - currentPrice) / (entryThreshold - band)
+  /**
+   * Calculate Bollinger Bands
+   * @returns Object with middle, upper, and lower bands
+   */
+  private calculateBollingerBands(): { middle: number; upper: number; lower: number } {
+    // Calculate simple moving average (middle band)
+    const prices = this.priceHistory.slice(-this.config.period)
+    const sum = prices.reduce((total, price) => total + price, 0)
+    const sma = sum / this.config.period
 
-    // Scale to a confidence score (0-100)
-    // Closer to the band = higher confidence
-    const baseConfidence = Math.min(distanceToThreshold * 100, 90)
+    // Calculate standard deviation
+    const squaredDifferences = prices.map((price) => Math.pow(price - sma, 2))
+    const sumSquaredDiff = squaredDifferences.reduce((total, diff) => total + diff, 0)
+    const standardDeviation = Math.sqrt(sumSquaredDiff / this.config.period)
 
-    // Add some randomness for demo purposes
-    return Math.min(Math.round(baseConfidence + Math.random() * 10), 100)
+    // Calculate bands
+    const upper = sma + standardDeviation * this.config.standardDeviations
+    const lower = sma - standardDeviation * this.config.standardDeviations
+
+    return {
+      middle: sma,
+      upper,
+      lower,
+    }
+  }
+
+  /**
+   * Execute a buy trade
+   * @param currentPrice Current token price
+   */
+  private async executeBuyTrade(currentPrice: number): Promise<void> {
+    // Check if we've reached max executions
+    if (this.executionCount >= this.config.maxExecutions) {
+      return
+    }
+
+    // Execute trade
+    const startTime = Date.now()
+
+    try {
+      const tradeResult = await tradingEngine.executeTrade({
+        inputMint: this.config.baseToken,
+        outputMint: this.config.targetToken,
+        amount: this.config.amount,
+        userPublicKey: "DUMMY_PUBLIC_KEY", // This would be replaced with actual wallet
+      })
+
+      const executionTime = Date.now() - startTime
+
+      if (tradeResult.success) {
+        // Update position
+        this.position = {
+          inPosition: true,
+          entryPrice: currentPrice,
+          amount: Number.parseFloat(tradeResult.outputAmount),
+        }
+
+        // Record performance
+        performanceMonitor.recordTrade(
+          true,
+          executionTime,
+          0, // Profit/loss will be calculated on sell
+          this.strategyId,
+        )
+      } else {
+        // Record failed trade
+        performanceMonitor.recordTrade(false, executionTime, 0, this.strategyId)
+      }
+
+      // Update execution count and time
+      this.executionCount++
+      this.lastExecutionTime = Date.now()
+
+      console.log(`Bollinger Bands strategy executed buy: ${tradeResult.success ? "Success" : "Failed"}`)
+    } catch (error) {
+      console.error("Error executing Bollinger Bands buy trade:", error)
+
+      // Record failed trade
+      performanceMonitor.recordTrade(false, Date.now() - startTime, 0, this.strategyId)
+    }
+  }
+
+  /**
+   * Execute a sell trade
+   * @param currentPrice Current token price
+   * @param profitLoss Profit/loss percentage
+   */
+  private async executeSellTrade(currentPrice: number, profitLoss: number): Promise<void> {
+    // Execute trade
+    const startTime = Date.now()
+
+    try {
+      const tradeResult = await tradingEngine.executeTrade({
+        inputMint: this.config.targetToken,
+        outputMint: this.config.baseToken,
+        amount: this.position.amount.toString(),
+        userPublicKey: "DUMMY_PUBLIC_KEY", // This would be replaced with actual wallet
+      })
+
+      const executionTime = Date.now() - startTime
+
+      // Calculate profit/loss in base token
+      const profit = (profitLoss * Number.parseFloat(this.config.amount)) / 100
+
+      // Record performance
+      performanceMonitor.recordTrade(
+        tradeResult.success,
+        executionTime,
+        tradeResult.success ? profit : 0,
+        this.strategyId,
+      )
+
+      // Reset position
+      this.position = {
+        inPosition: false,
+        entryPrice: 0,
+        amount: 0,
+      }
+
+      // Update execution time
+      this.lastExecutionTime = Date.now()
+
+      console.log(`Bollinger Bands strategy executed sell: ${tradeResult.success ? "Success" : "Failed"}`)
+    } catch (error) {
+      console.error("Error executing Bollinger Bands sell trade:", error)
+
+      // Record failed trade
+      performanceMonitor.recordTrade(false, Date.now() - startTime, 0, this.strategyId)
+    }
+  }
+
+  /**
+   * Update strategy configuration
+   * @param config New configuration
+   */
+  updateConfig(config: Partial<BollingerBandsStrategyConfig>): void {
+    this.config = { ...this.config, ...config }
+
+    // Restart if running and enabled
+    if (this.isRunning) {
+      this.stop()
+      if (this.config.enabled) {
+        this.start()
+      }
+    } else if (this.config.enabled) {
+      this.start()
+    }
+  }
+
+  /**
+   * Get strategy status
+   * @returns Strategy status
+   */
+  getStatus() {
+    return {
+      isRunning: this.isRunning,
+      executionCount: this.executionCount,
+      lastExecutionTime: this.lastExecutionTime,
+      inPosition: this.position.inPosition,
+      entryPrice: this.position.entryPrice,
+      config: this.config,
+      performance: performanceMonitor.getStrategyPerformance(this.strategyId),
+    }
   }
 }

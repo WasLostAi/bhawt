@@ -58,10 +58,13 @@
     "tailwindcss-animate": "^1.0.7",
     "vaul": "^0.9.6",
     "zod": "^3.24.1",
-    "@solana/web3.js": "latest",
-    "events": "latest",
-    "react-grid-layout": "latest",
-    "react-resizable": "latest"
+    "@tanstack/react-query": "latest",
+    "@emotion/is-prop-valid": "latest",
+    "immer": "latest",
+    "use-sync-external-store": "latest",
+    "@tanstack/react-query-devtools": "latest",
+    "framer-motion": "latest",
+    "zustand": "latest"
   },
   "devDependencies": {
     "@types/node": "^22",

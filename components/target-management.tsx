@@ -1,469 +1,343 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { useState } from "react"
+import { Plus, Trash2, Edit, Check, X, AlertTriangle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
-import { Slider } from "@/components/ui/slider"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Plus, Trash2, Edit, Zap, AlertCircle, AlertTriangle } from "lucide-react"
-import { useJupiterContext } from "@/contexts/jupiter-context"
-import { useToast } from "@/components/ui/use-toast"
 
-// SOL mint address
-const SOL_MINT = "So11111111111111111111111111111111111111112"
-
-interface TargetProps {
-  setActiveTargets: (count: number) => void
-}
-
-interface SnipeTarget {
-  id: string
-  name: string
-  mintAddress: string
-  maxBuyPrice: number
-  minLiquidity: number
-  maxSlippage: number
-  active: boolean
-  currentPrice?: number
-  priceLoading?: boolean
-  priceError?: boolean
-}
-
-const initialTargets: SnipeTarget[] = [
+// Mock target data
+const mockTargets = [
   {
-    id: "1",
-    name: "BONK",
-    mintAddress: "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263",
-    maxBuyPrice: 0.000012,
-    minLiquidity: 100000,
-    maxSlippage: 2.5,
+    id: "target1",
+    token: "BONK",
+    address: "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263",
+    amount: "100",
+    maxPrice: "0.00001",
     active: true,
   },
   {
-    id: "2",
-    name: "WIF",
-    mintAddress: "EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm",
-    maxBuyPrice: 0.00023,
-    minLiquidity: 250000,
-    maxSlippage: 1.5,
+    id: "target2",
+    token: "WIF",
+    address: "EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm",
+    amount: "50",
+    maxPrice: "0.0005",
     active: true,
   },
   {
-    id: "3",
-    name: "JTO",
-    mintAddress: "7Q2afV64in6N6SeZsAAB81TJzwDoD6zpqmHkzi9Dcavn",
-    maxBuyPrice: 0.0015,
-    minLiquidity: 500000,
-    maxSlippage: 1.0,
-    active: true,
+    id: "target3",
+    token: "JTO",
+    address: "7kbnb9z9PJVt9wUVe6TzJez3eSVP7dZEL9h6Gqh3zHAE",
+    amount: "25",
+    maxPrice: "0.002",
+    active: false,
   },
 ]
 
-export default function TargetManagement({ setActiveTargets }: TargetProps) {
-  const { toast } = useToast()
-  const { getTokenQuote, executeSnipe, isLoading } = useJupiterContext()
-  const [targets, setTargets] = useState<SnipeTarget[]>(initialTargets)
-  const [newTarget, setNewTarget] = useState<Partial<SnipeTarget>>({
-    name: "",
-    mintAddress: "",
-    maxBuyPrice: 0.0001,
-    minLiquidity: 100000,
-    maxSlippage: 1.0,
+export default function TargetManagement() {
+  const [targets, setTargets] = useState(mockTargets)
+  const [isAdding, setIsAdding] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [newTarget, setNewTarget] = useState({
+    token: "",
+    address: "",
+    amount: "",
+    maxPrice: "",
     active: true,
   })
-  const [componentError, setComponentError] = useState<Error | null>(null)
-
-  // Fetch current prices for all targets
-  useEffect(() => {
-    const fetchPrices = async () => {
-      if (!getTokenQuote) {
-        console.error("getTokenQuote function is not available")
-        return
-      }
-
-      // Create a copy of the targets to work with
-      const updatedTargets = [...targets]
-      let hasChanges = false
-
-      for (let i = 0; i < updatedTargets.length; i++) {
-        if (updatedTargets[i].active) {
-          // Mark as loading without updating state yet
-          updatedTargets[i].priceLoading = true
-          hasChanges = true
-        }
-      }
-
-      // Only update state once before API calls if there are changes
-      if (hasChanges) {
-        setTargets([...updatedTargets])
-      }
-
-      // Process each target sequentially to avoid race conditions
-      for (let i = 0; i < updatedTargets.length; i++) {
-        if (updatedTargets[i].active) {
-          try {
-            // Wrap the entire API call in a try-catch
-            const quoteResult = await getTokenQuote(
-              SOL_MINT,
-              updatedTargets[i].mintAddress,
-              1_000_000_000, // 1 SOL in lamports
-              100, // 1% slippage
-              true, // Only direct routes
-            ).catch((err) => {
-              console.error(`Error fetching quote: ${err.message}`)
-              return { success: false, error: err }
-            })
-
-            // Update the specific target with the result
-            if (quoteResult && quoteResult.success && quoteResult.data) {
-              const outAmount = Number.parseInt(quoteResult.data.outAmount)
-              const price = 1_000_000_000 / outAmount
-
-              updatedTargets[i].currentPrice = price
-              updatedTargets[i].priceLoading = false
-              updatedTargets[i].priceError = false
-            } else {
-              updatedTargets[i].priceLoading = false
-              updatedTargets[i].priceError = true
-            }
-          } catch (err) {
-            console.error(`Error fetching price for ${updatedTargets[i].name}:`, err)
-            updatedTargets[i].priceLoading = false
-            updatedTargets[i].priceError = true
-          }
-        }
-      }
-
-      // Update state once after all API calls are complete
-      setTargets([...updatedTargets])
-    }
-
-    fetchPrices()
-
-    // Refresh prices every 30 seconds
-    const interval = setInterval(fetchPrices, 30000)
-
-    return () => clearInterval(interval)
-  }, [getTokenQuote]) // Only depend on getTokenQuote, not targets
 
   const handleAddTarget = () => {
-    if (!newTarget.name || !newTarget.mintAddress) return
-
-    const target: SnipeTarget = {
-      id: Date.now().toString(),
-      name: newTarget.name || "",
-      mintAddress: newTarget.mintAddress || "",
-      maxBuyPrice: newTarget.maxBuyPrice || 0.0001,
-      minLiquidity: newTarget.minLiquidity || 100000,
-      maxSlippage: newTarget.maxSlippage || 1.0,
-      active: true,
-      priceLoading: true,
+    if (!newTarget.token || !newTarget.address || !newTarget.amount || !newTarget.maxPrice) {
+      // Show error notification
+      return
     }
 
-    // Update targets state with the new target
-    const updatedTargets = [...targets, target]
-    setTargets(updatedTargets)
+    const target = {
+      id: `target${Date.now()}`,
+      ...newTarget,
+    }
 
-    // Reset the form
+    setTargets([...targets, target])
     setNewTarget({
-      name: "",
-      mintAddress: "",
-      maxBuyPrice: 0.0001,
-      minLiquidity: 100000,
-      maxSlippage: 1.0,
+      token: "",
+      address: "",
+      amount: "",
+      maxPrice: "",
       active: true,
     })
-
-    // Update active targets count
-    const activeCount = updatedTargets.filter((t) => t.active).length
-    setActiveTargets(activeCount)
-    console.log(`Updated active targets count: ${activeCount}`)
-
-    // Fetch price for the new target in a separate effect
-    // This avoids updating state during render
-    setTimeout(() => {
-      if (getTokenQuote) {
-        getTokenQuote(
-          SOL_MINT,
-          target.mintAddress,
-          1_000_000_000, // 1 SOL in lamports
-          100, // 1% slippage
-          true, // Only direct routes
-        )
-          .then((quoteResult) => {
-            if (quoteResult.success && quoteResult.data) {
-              const outAmount = Number.parseInt(quoteResult.data.outAmount)
-              const price = 1_000_000_000 / outAmount
-
-              setTargets((prev) =>
-                prev.map((t) =>
-                  t.id === target.id ? { ...t, currentPrice: price, priceLoading: false, priceError: false } : t,
-                ),
-              )
-            } else {
-              setTargets((prev) =>
-                prev.map((t) => (t.id === target.id ? { ...t, priceLoading: false, priceError: true } : t)),
-              )
-            }
-          })
-          .catch((err) => {
-            console.error(`Error fetching price for ${target.name}:`, err)
-            setTargets((prev) =>
-              prev.map((t) => (t.id === target.id ? { ...t, priceLoading: false, priceError: true } : t)),
-            )
-          })
-      }
-    }, 0)
+    setIsAdding(false)
   }
 
-  const handleToggleActive = (id: string) => {
-    const updatedTargets = targets.map((target) => (target.id === id ? { ...target, active: !target.active } : target))
-    setTargets(updatedTargets)
-    updateActiveTargets(updatedTargets)
+  const handleEditTarget = (id: string) => {
+    const target = targets.find((t) => t.id === id)
+    if (target) {
+      setEditingId(id)
+      setNewTarget({
+        token: target.token,
+        address: target.address,
+        amount: target.amount,
+        maxPrice: target.maxPrice,
+        active: target.active,
+      })
+    }
+  }
+
+  const handleUpdateTarget = () => {
+    if (!editingId) return
+
+    setTargets(
+      targets.map((target) =>
+        target.id === editingId
+          ? {
+              ...target,
+              token: newTarget.token,
+              address: newTarget.address,
+              amount: newTarget.amount,
+              maxPrice: newTarget.maxPrice,
+              active: newTarget.active,
+            }
+          : target,
+      ),
+    )
+
+    setEditingId(null)
+    setNewTarget({
+      token: "",
+      address: "",
+      amount: "",
+      maxPrice: "",
+      active: true,
+    })
   }
 
   const handleDeleteTarget = (id: string) => {
-    const updatedTargets = targets.filter((target) => target.id !== id)
-    setTargets(updatedTargets)
-    updateActiveTargets(updatedTargets)
+    setTargets(targets.filter((target) => target.id !== id))
   }
 
-  const handleSnipeTarget = async (target: SnipeTarget) => {
-    try {
-      toast({
-        title: "Initiating snipe",
-        description: `Attempting to snipe ${target.name}...`,
-      })
-
-      const result = await executeSnipe(
-        SOL_MINT,
-        target.mintAddress,
-        1_000_000_000, // 1 SOL in lamports
-        target.maxBuyPrice,
-        target.maxSlippage,
-        250000, // Priority fee (0.00025 SOL)
-      )
-
-      if (result.success && result.data) {
-        toast({
-          title: "Snipe successful!",
-          description: `Successfully sniped ${target.name}`,
-          variant: "default",
-        })
-      } else {
-        toast({
-          title: "Snipe failed",
-          description: result.error?.message || "Unknown error",
-          variant: "destructive",
-        })
-      }
-    } catch (err: any) {
-      toast({
-        title: "Snipe error",
-        description: err.message || "An error occurred while sniping",
-        variant: "destructive",
-      })
-    }
+  const handleToggleActive = (id: string) => {
+    setTargets(
+      targets.map((target) =>
+        target.id === id
+          ? {
+              ...target,
+              active: !target.active,
+            }
+          : target,
+      ),
+    )
   }
 
-  const updateActiveTargets = (targetList: SnipeTarget[]) => {
-    const activeCount = targetList.filter((t) => t.active).length
-    setActiveTargets(activeCount)
-    console.log(`Updated active targets count: ${activeCount}`)
-  }
+  return (
+    <div className="bg-[#151514] border border-[#30302e] rounded-lg p-6">
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-xl font-bold">Target Management</h2>
+        <Button
+          onClick={() => setIsAdding(true)}
+          className="bg-gradient-to-r from-[#00B6E7] to-[#A4D756] hover:opacity-90 text-[#0C0C0C] font-medium"
+        >
+          <Plus className="h-4 w-4 mr-2" />
+          Add Target
+        </Button>
+      </div>
 
-  try {
-    return (
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <Card className="lg:col-span-2 bg-[#151514] border-[#30302e]">
-          <CardHeader>
-            <CardTitle className="text-xl font-[Syne]">Target Tokens</CardTitle>
-            <CardDescription>Configure tokens to snipe when conditions are met</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader className="bg-[#1d1d1c]">
-                <TableRow>
-                  <TableHead className="w-[80px]">Active</TableHead>
-                  <TableHead>Token</TableHead>
-                  <TableHead>Current Price</TableHead>
-                  <TableHead>Max Buy Price</TableHead>
-                  <TableHead>Max Slippage</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {targets.map((target) => (
-                  <TableRow key={target.id} className="border-[#30302e]">
-                    <TableCell>
-                      <Switch
-                        checked={target.active}
-                        onCheckedChange={() => handleToggleActive(target.id)}
-                        className="data-[state=checked]:bg-gradient-to-r from-[#00B6E7] to-[#A4D756]"
+      {isAdding && (
+        <div className="mb-6 p-4 border border-[#30302e] rounded-lg bg-[#1d1d1c]">
+          <h3 className="text-lg font-medium mb-4">Add New Target</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div>
+              <Label htmlFor="token">Token Symbol</Label>
+              <Input
+                id="token"
+                value={newTarget.token}
+                onChange={(e) => setNewTarget({ ...newTarget, token: e.target.value })}
+                className="bg-[#151514] border-[#30302e]"
+              />
+            </div>
+            <div>
+              <Label htmlFor="address">Token Address</Label>
+              <Input
+                id="address"
+                value={newTarget.address}
+                onChange={(e) => setNewTarget({ ...newTarget, address: e.target.value })}
+                className="bg-[#151514] border-[#30302e]"
+              />
+            </div>
+            <div>
+              <Label htmlFor="amount">Amount (SOL)</Label>
+              <Input
+                id="amount"
+                type="number"
+                value={newTarget.amount}
+                onChange={(e) => setNewTarget({ ...newTarget, amount: e.target.value })}
+                className="bg-[#151514] border-[#30302e]"
+              />
+            </div>
+            <div>
+              <Label htmlFor="maxPrice">Max Price</Label>
+              <Input
+                id="maxPrice"
+                type="number"
+                value={newTarget.maxPrice}
+                onChange={(e) => setNewTarget({ ...newTarget, maxPrice: e.target.value })}
+                className="bg-[#151514] border-[#30302e]"
+              />
+            </div>
+          </div>
+          <div className="flex items-center space-x-2 mb-4">
+            <Switch
+              id="active"
+              checked={newTarget.active}
+              onCheckedChange={(checked) => setNewTarget({ ...newTarget, active: checked })}
+            />
+            <Label htmlFor="active">Active</Label>
+          </div>
+          <div className="flex justify-end space-x-2">
+            <Button variant="outline" onClick={() => setIsAdding(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleAddTarget}>Add Target</Button>
+          </div>
+        </div>
+      )}
+
+      <div className="overflow-x-auto">
+        <table className="w-full">
+          <thead>
+            <tr className="text-[#707070] text-sm border-b border-[#30302e]">
+              <th className="pb-2 text-left">Token</th>
+              <th className="pb-2 text-left">Address</th>
+              <th className="pb-2 text-left">Amount (SOL)</th>
+              <th className="pb-2 text-left">Max Price</th>
+              <th className="pb-2 text-left">Status</th>
+              <th className="pb-2 text-left">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {targets.map((target) => (
+              <tr key={target.id} className="border-b border-[#30302e] hover:bg-[#1d1d1c]">
+                {editingId === target.id ? (
+                  <>
+                    <td className="py-4">
+                      <Input
+                        value={newTarget.token}
+                        onChange={(e) => setNewTarget({ ...newTarget, token: e.target.value })}
+                        className="bg-[#151514] border-[#30302e] h-8"
                       />
-                    </TableCell>
-                    <TableCell>
-                      <div>
-                        <div className="font-medium">{target.name}</div>
-                        <div className="text-xs text-[#707070]">
-                          {target.mintAddress.substring(0, 6)}...
-                          {target.mintAddress.substring(target.mintAddress.length - 4)}
-                        </div>
+                    </td>
+                    <td className="py-4">
+                      <Input
+                        value={newTarget.address}
+                        onChange={(e) => setNewTarget({ ...newTarget, address: e.target.value })}
+                        className="bg-[#151514] border-[#30302e] h-8"
+                      />
+                    </td>
+                    <td className="py-4">
+                      <Input
+                        type="number"
+                        value={newTarget.amount}
+                        onChange={(e) => setNewTarget({ ...newTarget, amount: e.target.value })}
+                        className="bg-[#151514] border-[#30302e] h-8"
+                      />
+                    </td>
+                    <td className="py-4">
+                      <Input
+                        type="number"
+                        value={newTarget.maxPrice}
+                        onChange={(e) => setNewTarget({ ...newTarget, maxPrice: e.target.value })}
+                        className="bg-[#151514] border-[#30302e] h-8"
+                      />
+                    </td>
+                    <td className="py-4">
+                      <div className="flex items-center">
+                        <Switch
+                          checked={newTarget.active}
+                          onCheckedChange={(checked) => setNewTarget({ ...newTarget, active: checked })}
+                        />
                       </div>
-                    </TableCell>
-                    <TableCell>
-                      {target.priceLoading ? (
-                        <div className="flex items-center">
-                          <div className="h-3 w-3 mr-2 animate-spin rounded-full border-2 border-[#22CCEE] border-t-transparent"></div>
-                          <span>Loading...</span>
-                        </div>
-                      ) : target.priceError ? (
-                        <div className="flex items-center text-[#E57676]">
-                          <AlertCircle className="h-3 w-3 mr-1" />
-                          <span>Error</span>
-                        </div>
-                      ) : (
+                    </td>
+                    <td className="py-4">
+                      <div className="flex space-x-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={handleUpdateTarget}
+                          className="h-8 w-8 text-[#A4D756]"
+                        >
+                          <Check className="h-4 w-4" />
+                          <span className="sr-only">Save</span>
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setEditingId(null)}
+                          className="h-8 w-8 text-[#E57676]"
+                        >
+                          <X className="h-4 w-4" />
+                          <span className="sr-only">Cancel</span>
+                        </Button>
+                      </div>
+                    </td>
+                  </>
+                ) : (
+                  <>
+                    <td className="py-4 font-medium">{target.token}</td>
+                    <td className="py-4">
+                      <span className="text-[#707070]">{truncateAddress(target.address)}</span>
+                    </td>
+                    <td className="py-4">{target.amount}</td>
+                    <td className="py-4">{target.maxPrice}</td>
+                    <td className="py-4">
+                      <div className="flex items-center">
                         <div
-                          className={
-                            target.currentPrice && target.currentPrice <= target.maxBuyPrice ? "text-[#76D484]" : ""
-                          }
-                        >
-                          {target.currentPrice?.toFixed(8) || "N/A"}
-                        </div>
-                      )}
-                    </TableCell>
-                    <TableCell>{target.maxBuyPrice.toFixed(8)}</TableCell>
-                    <TableCell>{target.maxSlippage}%</TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end space-x-2">
+                          className={`h-2 w-2 rounded-full mr-2 ${target.active ? "bg-[#A4D756]" : "bg-[#707070]"}`}
+                        ></div>
+                        <span>{target.active ? "Active" : "Inactive"}</span>
+                      </div>
+                    </td>
+                    <td className="py-4">
+                      <div className="flex space-x-2">
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-8 w-8 text-[#22CCEE] hover:text-[#00B6E7]"
-                          onClick={() => handleSnipeTarget(target)}
-                          disabled={isLoading}
+                          onClick={() => handleToggleActive(target.id)}
+                          className={`h-8 w-8 ${target.active ? "text-[#F9CB40]" : "text-[#A4D756]"}`}
                         >
-                          <Zap className="h-4 w-4" />
+                          {target.active ? <AlertTriangle className="h-4 w-4" /> : <Check className="h-4 w-4" />}
+                          <span className="sr-only">{target.active ? "Deactivate" : "Activate"}</span>
                         </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleEditTarget(target.id)}
+                          className="h-8 w-8"
+                        >
                           <Edit className="h-4 w-4" />
+                          <span className="sr-only">Edit</span>
                         </Button>
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-8 w-8 text-red-500 hover:text-red-400"
                           onClick={() => handleDeleteTarget(target.id)}
+                          className="h-8 w-8 text-[#E57676]"
                         >
                           <Trash2 className="h-4 w-4" />
+                          <span className="sr-only">Delete</span>
                         </Button>
                       </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-[#151514] border-[#30302e]">
-          <CardHeader>
-            <CardTitle className="text-xl font-[Syne]">Add New Target</CardTitle>
-            <CardDescription>Configure parameters for token sniping</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="tokenName">Token Name</Label>
-                <Input
-                  id="tokenName"
-                  placeholder="e.g. BONK"
-                  className="bg-[#1d1d1c] border-[#30302e]"
-                  value={newTarget.name}
-                  onChange={(e) => setNewTarget({ ...newTarget, name: e.target.value })}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="mintAddress">Mint Address</Label>
-                <Input
-                  id="mintAddress"
-                  placeholder="Token mint address"
-                  className="bg-[#1d1d1c] border-[#30302e]"
-                  value={newTarget.mintAddress}
-                  onChange={(e) => setNewTarget({ ...newTarget, mintAddress: e.target.value })}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex justify-between">
-                  <Label htmlFor="maxBuyPrice">Max Buy Price</Label>
-                  <span className="text-sm text-[#707070]">{newTarget.maxBuyPrice?.toFixed(8)}</span>
-                </div>
-                <Slider
-                  id="maxBuyPrice"
-                  min={0.00000001}
-                  max={0.001}
-                  step={0.00000001}
-                  value={[newTarget.maxBuyPrice || 0.0001]}
-                  onValueChange={(value) => setNewTarget({ ...newTarget, maxBuyPrice: value[0] })}
-                  className="[&>span]:bg-gradient-to-r [&>span]:from-[#00B6E7] [&>span]:to-[#A4D756]"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex justify-between">
-                  <Label htmlFor="minLiquidity">Min Liquidity (USD)</Label>
-                  <span className="text-sm text-[#707070]">${newTarget.minLiquidity?.toLocaleString()}</span>
-                </div>
-                <Slider
-                  id="minLiquidity"
-                  min={10000}
-                  max={1000000}
-                  step={10000}
-                  value={[newTarget.minLiquidity || 100000]}
-                  onValueChange={(value) => setNewTarget({ ...newTarget, minLiquidity: value[0] })}
-                  className="[&>span]:bg-gradient-to-r [&>span]:from-[#22CCEE] [&>span]:to-[#2ED3B7]"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex justify-between">
-                  <Label htmlFor="maxSlippage">Max Slippage (%)</Label>
-                  <span className="text-sm text-[#707070]">{newTarget.maxSlippage}%</span>
-                </div>
-                <Slider
-                  id="maxSlippage"
-                  min={0.1}
-                  max={5}
-                  step={0.1}
-                  value={[newTarget.maxSlippage || 1.0]}
-                  onValueChange={(value) => setNewTarget({ ...newTarget, maxSlippage: value[0] })}
-                  className="[&>span]:bg-gradient-to-r [&>span]:from-[#2ED3B7] [&>span]:to-[#C8F284]"
-                />
-              </div>
-
-              <Button
-                className="w-full bg-gradient-to-r from-[#00B6E7] to-[#A4D756] hover:opacity-90 text-[#0C0C0C] font-medium"
-                onClick={handleAddTarget}
-              >
-                <Plus className="mr-2 h-4 w-4" /> Add Target
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+                    </td>
+                  </>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
-    )
-  } catch (error) {
-    console.error("Error rendering TargetManagement:", error)
-    return (
-      <div className="p-8 text-center">
-        <AlertTriangle className="h-12 w-12 mx-auto mb-4 text-[#E57676]" />
-        <h3 className="text-xl font-medium mb-2">Component Error</h3>
-        <p className="text-[#707070]">{error instanceof Error ? error.message : "Unknown error occurred"}</p>
-      </div>
-    )
-  }
+    </div>
+  )
+}
+
+function truncateAddress(address: string): string {
+  if (address.length <= 12) return address
+  return `${address.substring(0, 6)}...${address.substring(address.length - 4)}`
 }

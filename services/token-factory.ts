@@ -1,251 +1,143 @@
-import { Connection, type Keypair, PublicKey, Transaction } from "@solana/web3.js"
 import { ENV } from "@/lib/env"
-import { bundleEngine } from "./bundle-engine"
+import { apiClient, API_ENDPOINTS } from "./api-client"
 
-// Mock token program IDs
-const TOKEN_PROGRAM_ID = new PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA")
-const METAPLEX_PROGRAM_ID = new PublicKey("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s")
-
-// Types for token creation
-export interface TokenMetadata {
-  name: string
+export interface TokenInfo {
+  address: string
   symbol: string
-  uri?: string
-  description?: string
-  image?: string
-  externalUrl?: string
-  attributes?: Array<{
-    trait_type: string
-    value: string | number
-  }>
-  creators?: Array<{
+  name: string
+  decimals: number
+  totalSupply: string
+  circulatingSupply: string
+  holders: number
+  price: number
+  marketCap: number
+  volume24h: number
+  priceChange24h: number
+  createdAt: number
+  verified: boolean
+  logoURI?: string
+  tags?: string[]
+  socials?: {
+    website?: string
+    twitter?: string
+    telegram?: string
+    discord?: string
+  }
+}
+
+export interface TokenLiquidity {
+  address: string
+  symbol: string
+  totalLiquidity: number
+  pools: {
     address: string
-    share: number
-  }>
-  sellerFeeBasisPoints?: number
+    dex: string
+    liquidity: number
+    pair: string
+    price: number
+  }[]
 }
 
-export interface TokenCreationOptions {
-  decimals?: number
-  initialSupply?: number
-  freezeAuthority?: PublicKey | null
-  mintAuthority?: PublicKey | null
-  metadata?: TokenMetadata
-  bundleOptions?: {
-    includeLiquidityPool?: boolean
-    initialLiquidity?: number // In SOL
-    bundleWithMetadata?: boolean
-  }
-}
-
-export interface TokenCreationResult {
-  success: boolean
-  mint?: PublicKey
-  associatedTokenAccount?: PublicKey
-  metadataAddress?: PublicKey
-  transactions?: Transaction[]
-  bundleResult?: any
-  error?: {
-    message: string
-    details?: any
-  }
-}
-
-// Token Factory class
 export class TokenFactory {
-  constructor(
-    private connection: Connection,
-    private wallet?: Keypair,
-  ) {}
+  private tokenCache: Map<string, TokenInfo>
+  private liquidityCache: Map<string, TokenLiquidity>
+  private cacheTimeout: number
 
-  /**
-   * Set wallet for token creation
-   * @param wallet Wallet keypair
-   */
-  public setWallet(wallet: Keypair): void {
-    this.wallet = wallet
+  constructor() {
+    this.tokenCache = new Map()
+    this.liquidityCache = new Map()
+    this.cacheTimeout = ENV.get("CACHE_TIMEOUT", 60000) // Default 1 minute
   }
 
   /**
-   * Create an SPL token with optional metadata
-   * @param options Token creation options
-   * @returns Token creation result
+   * Get token information
+   * @param address Token address
+   * @param forceRefresh Force refresh from API
+   * @returns Token information
    */
-  public async createSPLToken(options: TokenCreationOptions = {}): Promise<TokenCreationResult> {
-    try {
-      if (!this.wallet) {
-        return {
-          success: false,
-          error: {
-            message: "Wallet not set. Call setWallet() first.",
-          },
-        }
-      }
-
-      // Default options
-      const defaultOptions: TokenCreationOptions = {
-        decimals: 9,
-        initialSupply: 1000000000,
-        freezeAuthority: null,
-        mintAuthority: this.wallet.publicKey,
-        metadata: {
-          name: "New Token",
-          symbol: "TOKEN",
-        },
-        bundleOptions: {
-          includeLiquidityPool: false,
-          initialLiquidity: 1, // 1 SOL
-          bundleWithMetadata: true,
-        },
-      }
-
-      // Merge options
-      const mergedOptions = { ...defaultOptions, ...options }
-
-      // In a real implementation, this would create the token using SPL Token program
-      // For now, we'll simulate the token creation
-
-      // Simulate API call delay
-      await new Promise((resolve) => setTimeout(resolve, 800))
-
-      // Generate mock mint address
-      const mint = new PublicKey(Buffer.from(`mint_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`))
-
-      // Generate mock associated token account address
-      const associatedTokenAccount = new PublicKey(
-        Buffer.from(`ata_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`),
-      )
-
-      // Generate mock metadata address
-      const metadataAddress = PublicKey.findProgramAddressSync(
-        [Buffer.from("metadata"), METAPLEX_PROGRAM_ID.toBuffer(), mint.toBuffer()],
-        METAPLEX_PROGRAM_ID,
-      )[0]
-
-      // Create mock transactions
-      const createMintTx = new Transaction().add({
-        keys: [],
-        programId: TOKEN_PROGRAM_ID,
-        data: Buffer.from([]),
-      })
-
-      const createMetadataTx = new Transaction().add({
-        keys: [],
-        programId: METAPLEX_PROGRAM_ID,
-        data: Buffer.from([]),
-      })
-
-      const transactions = [createMintTx, createMetadataTx]
-
-      // If including liquidity pool, add that transaction
-      if (mergedOptions.bundleOptions?.includeLiquidityPool) {
-        const createPoolTx = new Transaction().add({
-          keys: [],
-          programId: new PublicKey("675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8"),
-          data: Buffer.from([]),
-        })
-
-        transactions.push(createPoolTx)
-      }
-
-      // If bundling with metadata, send as a bundle
-      if (mergedOptions.bundleOptions?.bundleWithMetadata) {
-        const bundleResult = await bundleEngine.sendBundle(transactions, {
-          strategy: "standard",
-          onProgress: (progress, message) => {
-            console.log(`Token creation progress: ${progress}% - ${message}`)
-          },
-        })
-
-        return {
-          success: bundleResult.success,
-          mint,
-          associatedTokenAccount,
-          metadataAddress,
-          transactions,
-          bundleResult,
-          error: bundleResult.error,
-        }
-      }
-
-      return {
-        success: true,
-        mint,
-        associatedTokenAccount,
-        metadataAddress,
-        transactions,
-      }
-    } catch (error: any) {
-      console.error("Error creating SPL token:", error)
-
-      return {
-        success: false,
-        error: {
-          message: error.message || "Unknown error creating SPL token",
-          details: error,
-        },
-      }
+  async getTokenInfo(address: string, forceRefresh = false): Promise<TokenInfo> {
+    // Check cache first
+    if (!forceRefresh && this.tokenCache.has(address)) {
+      return this.tokenCache.get(address)!
     }
-  }
 
-  /**
-   * Create a liquidity pool for a token
-   * @param mint Token mint address
-   * @param initialLiquidity Initial liquidity in SOL
-   * @returns Transaction for creating the pool
-   */
-  public async createLiquidityPool(mint: PublicKey, initialLiquidity = 1): Promise<Transaction> {
     try {
-      // In a real implementation, this would create a liquidity pool using Raydium or Orca
-      // For now, we'll return a mock transaction
+      const response = await apiClient.get<TokenInfo>(`${API_ENDPOINTS.tokens.info}?address=${address}`)
 
-      // Simulate API call delay
-      await new Promise((resolve) => setTimeout(resolve, 500))
+      // Update cache
+      this.tokenCache.set(address, response)
 
-      // Create mock transaction
-      const createPoolTx = new Transaction().add({
-        keys: [],
-        programId: new PublicKey("675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8"),
-        data: Buffer.from([]),
-      })
+      // Clear cache after timeout
+      setTimeout(() => {
+        this.tokenCache.delete(address)
+      }, this.cacheTimeout)
 
-      return createPoolTx
+      return response
     } catch (error) {
-      console.error("Error creating liquidity pool:", error)
+      console.error("Error getting token info:", error)
       throw error
     }
   }
 
   /**
-   * Update token metadata
-   * @param mint Token mint address
-   * @param metadata Token metadata
-   * @returns Transaction for updating metadata
+   * Get token liquidity information
+   * @param address Token address
+   * @param forceRefresh Force refresh from API
+   * @returns Token liquidity information
    */
-  public async updateTokenMetadata(mint: PublicKey, metadata: Partial<TokenMetadata>): Promise<Transaction> {
+  async getTokenLiquidity(address: string, forceRefresh = false): Promise<TokenLiquidity> {
+    // Check cache first
+    if (!forceRefresh && this.liquidityCache.has(address)) {
+      return this.liquidityCache.get(address)!
+    }
+
     try {
-      // In a real implementation, this would update the token metadata using Metaplex
-      // For now, we'll return a mock transaction
+      const response = await apiClient.get<TokenLiquidity>(`${API_ENDPOINTS.tokens.liquidity}?address=${address}`)
 
-      // Simulate API call delay
-      await new Promise((resolve) => setTimeout(resolve, 300))
+      // Update cache
+      this.liquidityCache.set(address, response)
 
-      // Create mock transaction
-      const updateMetadataTx = new Transaction().add({
-        keys: [],
-        programId: METAPLEX_PROGRAM_ID,
-        data: Buffer.from([]),
-      })
+      // Clear cache after timeout
+      setTimeout(() => {
+        this.liquidityCache.delete(address)
+      }, this.cacheTimeout)
 
-      return updateMetadataTx
+      return response
     } catch (error) {
-      console.error("Error updating token metadata:", error)
+      console.error("Error getting token liquidity:", error)
       throw error
+    }
+  }
+
+  /**
+   * Get token price
+   * @param address Token address
+   * @returns Token price in USD
+   */
+  async getTokenPrice(address: string): Promise<number> {
+    try {
+      const response = await apiClient.get<{ price: number }>(`${API_ENDPOINTS.tokens.price}?address=${address}`)
+      return response.price
+    } catch (error) {
+      console.error("Error getting token price:", error)
+      throw error
+    }
+  }
+
+  /**
+   * Check if a token is verified
+   * @param address Token address
+   * @returns True if token is verified
+   */
+  async isTokenVerified(address: string): Promise<boolean> {
+    try {
+      const tokenInfo = await this.getTokenInfo(address)
+      return tokenInfo.verified
+    } catch (error) {
+      console.error("Error checking if token is verified:", error)
+      return false
     }
   }
 }
 
-// Export a singleton instance
-export const tokenFactory = new TokenFactory(
-  new Connection(ENV.get("RPC_ENDPOINT", "https://api.mainnet-beta.solana.com")),
-)
+export const tokenFactory = new TokenFactory()

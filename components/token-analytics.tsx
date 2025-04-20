@@ -1,575 +1,387 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Badge } from "@/components/ui/badge"
+import { useState } from "react"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Search, ExternalLink, TrendingUp, TrendingDown, Users, Clock } from "lucide-react"
-import { useToast } from "@/components/ui/use-toast"
-import { Line, LineChart, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts"
+import { Button } from "@/components/ui/button"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { useTokenList } from "@/hooks/use-token-list"
+import { useTokenPrice } from "@/hooks/use-token-price"
+import { RefreshCw, Search, TrendingUp, TrendingDown, Clock, BarChart3, ExternalLink, Info } from "lucide-react"
+import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip } from "recharts"
 
-// Token analytics data types
-interface TokenData {
-  address: string
-  name: string
-  symbol: string
-  price: number
-  priceChange24h: number
-  marketCap: number
-  volume24h: number
-  liquidity: number
-  holders: number
-  createdAt: Date
-  verified: boolean
-  rugPullRisk: number
-  safetyScore: number
-}
+// Mock data for token analytics
+const priceHistoryData = [
+  { time: "00:00", price: 0.00001234 },
+  { time: "01:00", price: 0.00001245 },
+  { time: "02:00", price: 0.00001256 },
+  { time: "03:00", price: 0.00001278 },
+  { time: "04:00", price: 0.0000129 },
+  { time: "05:00", price: 0.0000131 },
+  { time: "06:00", price: 0.00001298 },
+  { time: "07:00", price: 0.0000132 },
+  { time: "08:00", price: 0.00001345 },
+  { time: "09:00", price: 0.00001367 },
+  { time: "10:00", price: 0.0000139 },
+  { time: "11:00", price: 0.0000141 },
+  { time: "12:00", price: 0.0000143 },
+  { time: "13:00", price: 0.0000145 },
+  { time: "14:00", price: 0.0000147 },
+  { time: "15:00", price: 0.0000149 },
+  { time: "16:00", price: 0.0000151 },
+  { time: "17:00", price: 0.0000153 },
+  { time: "18:00", price: 0.0000155 },
+  { time: "19:00", price: 0.0000157 },
+  { time: "20:00", price: 0.0000159 },
+  { time: "21:00", price: 0.0000161 },
+  { time: "22:00", price: 0.0000163 },
+  { time: "23:00", price: 0.0000165 },
+]
 
-interface HolderDistribution {
-  type: string
-  percentage: number
-  count: number
-}
+const volumeData = [
+  { time: "00:00", volume: 45000 },
+  { time: "01:00", volume: 52000 },
+  { time: "02:00", volume: 49000 },
+  { time: "03:00", volume: 47000 },
+  { time: "04:00", volume: 53000 },
+  { time: "05:00", volume: 56000 },
+  { time: "06:00", volume: 62000 },
+  { time: "07:00", volume: 58000 },
+  { time: "08:00", volume: 63000 },
+  { time: "09:00", volume: 72000 },
+  { time: "10:00", volume: 85000 },
+  { time: "11:00", volume: 92000 },
+  { time: "12:00", volume: 86000 },
+  { time: "13:00", volume: 89000 },
+  { time: "14:00", volume: 95000 },
+  { time: "15:00", volume: 102000 },
+  { time: "16:00", volume: 108000 },
+  { time: "17:00", volume: 115000 },
+  { time: "18:00", volume: 125000 },
+  { time: "19:00", volume: 132000 },
+  { time: "20:00", volume: 128000 },
+  { time: "21:00", volume: 118000 },
+  { time: "22:00", volume: 105000 },
+  { time: "23:00", volume: 98000 },
+]
 
-interface TransactionHistory {
-  time: string
-  price: number
-  volume: number
-  buys: number
-  sells: number
-}
-
-interface WhaleActivity {
-  wallet: string
-  label: string | null
-  type: "buy" | "sell"
-  amount: number
-  value: number
-  time: string
-}
-
-// Mock data generator
-const generateMockTokenData = (address: string): TokenData => {
-  const symbols = ["BONK", "WIF", "JTO", "PYTH", "BOME", "RENDER", "MANGO"]
-  const names = ["Bonk", "Wif", "Jito", "Pyth Network", "Book of Meme", "Render", "Mango Markets"]
-
-  const symbolIndex = Math.floor(Math.random() * symbols.length)
-
-  return {
-    address,
-    name: names[symbolIndex],
-    symbol: symbols[symbolIndex],
-    price: 0.00001 + Math.random() * 0.001,
-    priceChange24h: Math.random() * 40 - 20, // -20% to +20%
-    marketCap: 1000000 + Math.random() * 100000000,
-    volume24h: 100000 + Math.random() * 10000000,
-    liquidity: 50000 + Math.random() * 5000000,
-    holders: 1000 + Math.floor(Math.random() * 100000),
-    createdAt: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000), // 0-30 days ago
-    verified: Math.random() > 0.3,
-    rugPullRisk: Math.random() * 100,
-    safetyScore: Math.random() * 100,
-  }
-}
-
-const generateMockHolderDistribution = (): HolderDistribution[] => {
-  const whalePercentage = 20 + Math.random() * 40
-  const institutionalPercentage = 10 + Math.random() * 20
-  const retailPercentage = 100 - whalePercentage - institutionalPercentage
-
-  return [
-    { type: "Whales", percentage: whalePercentage, count: Math.floor(Math.random() * 50) + 5 },
-    { type: "Institutional", percentage: institutionalPercentage, count: Math.floor(Math.random() * 100) + 20 },
-    { type: "Retail", percentage: retailPercentage, count: Math.floor(Math.random() * 10000) + 1000 },
-  ]
-}
-
-const generateMockTransactionHistory = (): TransactionHistory[] => {
-  const data = []
-  const now = new Date()
-
-  for (let i = 30; i >= 0; i--) {
-    const time = new Date(now.getTime() - i * 3600000)
-    const basePrice = 0.00001 + Math.sin(i / 5) * 0.000005
-    const volume = 10000 + Math.random() * 50000
-    const buys = Math.floor(volume * (0.4 + Math.random() * 0.3))
-    const sells = Math.floor(volume - buys)
-
-    data.push({
-      time: time.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
-      price: basePrice,
-      volume,
-      buys,
-      sells,
-    })
-  }
-
-  return data
-}
-
-const generateMockWhaleActivity = (): WhaleActivity[] => {
-  const data = []
-  const now = new Date()
-
-  for (let i = 0; i < 10; i++) {
-    const time = new Date(now.getTime() - i * Math.random() * 3600000)
-    const type = Math.random() > 0.5 ? "buy" : "sell"
-    const amount = 100000 + Math.random() * 10000000
-    const value = amount * (0.00001 + Math.random() * 0.00001)
-
-    data.push({
-      wallet: `${Math.random().toString(36).substring(2, 8)}...${Math.random().toString(36).substring(2, 6)}`,
-      label:
-        Math.random() > 0.7
-          ? ["Alameda Research", "Jump Crypto", "Binance", "FTX"][Math.floor(Math.random() * 4)]
-          : null,
-      type,
-      amount,
-      value,
-      time: time.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
-    })
-  }
-
-  return data
-}
-
-// Token Analytics Component
 export default function TokenAnalytics() {
-  const { toast } = useToast()
-  const [searchQuery, setSearchQuery] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
-  const [tokenAddress, setTokenAddress] = useState<string | null>(null)
-  const [tokenData, setTokenData] = useState<TokenData | null>(null)
-  const [holderDistribution, setHolderDistribution] = useState<HolderDistribution[]>([])
-  const [transactionHistory, setTransactionHistory] = useState<TransactionHistory[]>([])
-  const [whaleActivity, setWhaleActivity] = useState<WhaleActivity[]>([])
+  const [selectedToken, setSelectedToken] = useState<string>("")
+  const [timeRange, setTimeRange] = useState<string>("24h")
+  const [isLoading, setIsLoading] = useState<boolean>(false)
+  const [activeTab, setActiveTab] = useState<string>("price")
 
-  // Load token data when address changes
-  useEffect(() => {
-    if (!tokenAddress) return
+  const { tokens } = useTokenList({ onlyVerified: true })
+  const { price, priceChange24h } = useTokenPrice(selectedToken, { refreshInterval: 30000 })
 
-    const fetchTokenData = async () => {
-      setIsLoading(true)
+  // Handle token selection
+  const handleTokenSelect = (value: string) => {
+    setIsLoading(true)
+    setSelectedToken(value)
 
-      try {
-        // In a real implementation, this would fetch data from APIs
-        // For now, we'll use mock data
-        await new Promise((resolve) => setTimeout(resolve, 1000))
-
-        setTokenData(generateMockTokenData(tokenAddress))
-        setHolderDistribution(generateMockHolderDistribution())
-        setTransactionHistory(generateMockTransactionHistory())
-        setWhaleActivity(generateMockWhaleActivity())
-      } catch (error) {
-        console.error("Error fetching token data:", error)
-        toast({
-          title: "Error",
-          description: "Failed to fetch token data",
-          variant: "destructive",
-        })
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    fetchTokenData()
-  }, [tokenAddress, toast])
-
-  // Handle search
-  const handleSearch = () => {
-    if (!searchQuery) return
-
-    setTokenAddress(searchQuery)
+    // Simulate loading
+    setTimeout(() => {
+      setIsLoading(false)
+    }, 1000)
   }
 
-  // Safety score color
-  const getSafetyColor = (score: number) => {
-    if (score >= 80) return "text-[#76D484]"
-    if (score >= 50) return "text-[#F9CB40]"
-    return "text-[#E57676]"
+  // Handle refresh
+  const handleRefresh = () => {
+    setIsLoading(true)
+
+    // Simulate refresh
+    setTimeout(() => {
+      setIsLoading(false)
+    }, 1000)
   }
 
-  // Risk level text
-  const getRiskLevel = (score: number) => {
-    if (score >= 80) return "Low Risk"
-    if (score >= 50) return "Medium Risk"
-    return "High Risk"
+  // Format price with appropriate decimals
+  const formatPrice = (price: number) => {
+    if (price < 0.00001) return price.toFixed(10)
+    if (price < 0.0001) return price.toFixed(8)
+    if (price < 0.01) return price.toFixed(6)
+    if (price < 1) return price.toFixed(4)
+    return price.toFixed(2)
   }
 
-  // Pie chart colors
-  const COLORS = ["#00B6E7", "#2ED3B7", "#A4D756"]
-
-  // Memoized transaction volume data
-  const volumeData = useMemo(() => {
-    if (!transactionHistory.length) return []
-
-    return transactionHistory.map((item) => ({
-      time: item.time,
-      buys: item.buys,
-      sells: item.sells,
-    }))
-  }, [transactionHistory])
+  // Format large numbers with commas
+  const formatNumber = (num: number) => {
+    return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+  }
 
   return (
-    <div className="space-y-4">
-      <Card className="bg-[#151514] border-[#30302e]">
-        <CardHeader className="pb-2">
-          <div className="flex justify-between items-center">
-            <div>
-              <CardTitle className="text-xl font-syne">Token Analytics</CardTitle>
-              <CardDescription>Comprehensive on-chain analysis for Solana tokens</CardDescription>
-            </div>
-            <div className="flex items-center space-x-2">
-              <div className="relative w-80">
-                <Search className="absolute left-2 top-2.5 h-4 w-4 text-[#707070]" />
-                <Input
-                  placeholder="Search by token address or symbol"
-                  className="pl-8 bg-[#1d1d1c] border-[#30302e]"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-                />
-              </div>
-              <Button
-                className="bg-gradient-to-r from-[#00B6E7] to-[#A4D756] hover:opacity-90 text-[#0C0C0C] font-medium"
-                onClick={handleSearch}
-                disabled={isLoading || !searchQuery}
-              >
-                <Search className="mr-2 h-4 w-4" />
-                Search
-              </Button>
-            </div>
+    <div className="space-y-6">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <h2 className="text-2xl font-bold">Token Analytics</h2>
+          <p className="text-[#707070]">Comprehensive analytics for Solana tokens</p>
+        </div>
+
+        <div className="flex flex-col md:flex-row gap-4 w-full md:w-auto">
+          <div className="relative flex-1 md:w-64">
+            <Search className="absolute left-2 top-2.5 h-4 w-4 text-[#707070]" />
+            <Select value={selectedToken} onValueChange={handleTokenSelect}>
+              <SelectTrigger className="pl-8 bg-[#1d1d1c] border-[#30302e] w-full">
+                <SelectValue placeholder="Select a token" />
+              </SelectTrigger>
+              <SelectContent>
+                {tokens.map((token) => (
+                  <SelectItem key={token.address} value={token.address}>
+                    {token.symbol} - {token.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="flex justify-center items-center h-64">
-              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#22CCEE]"></div>
-            </div>
-          ) : !tokenData ? (
-            <div className="flex flex-col items-center justify-center h-64 text-[#707070]">
-              <Search className="h-16 w-16 mb-4 opacity-30" />
-              <p className="text-lg">Search for a token to view analytics</p>
-              <p className="text-sm mt-2">Enter a token address or symbol to get started</p>
-            </div>
-          ) : (
-            <Tabs defaultValue="overview">
-              <TabsList className="bg-[#1d1d1c] border border-[#30302e]">
-                <TabsTrigger value="overview">Overview</TabsTrigger>
-                <TabsTrigger value="holders">Holders</TabsTrigger>
-                <TabsTrigger value="transactions">Transactions</TabsTrigger>
-                <TabsTrigger value="whales">Whale Activity</TabsTrigger>
-              </TabsList>
 
-              <TabsContent value="overview" className="mt-4">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <Card className="bg-[#1d1d1c] border-[#30302e]">
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-lg">
-                        {tokenData.name} ({tokenData.symbol})
-                      </CardTitle>
-                      <CardDescription>
-                        {tokenData.address.substring(0, 8)}...
-                        {tokenData.address.substring(tokenData.address.length - 8)}
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-4">
-                        <div>
-                          <p className="text-sm text-[#707070]">Price</p>
-                          <div className="flex items-center">
-                            <p className="text-2xl font-medium">${tokenData.price.toFixed(8)}</p>
-                            <Badge
-                              className={`ml-2 ${tokenData.priceChange24h >= 0 ? "bg-[#76D484]" : "bg-[#E57676]"}`}
-                            >
-                              {tokenData.priceChange24h >= 0 ? "+" : ""}
-                              {tokenData.priceChange24h.toFixed(2)}%
-                            </Badge>
-                          </div>
-                        </div>
+          <Select value={timeRange} onValueChange={setTimeRange}>
+            <SelectTrigger className="w-full md:w-32 bg-[#1d1d1c] border-[#30302e]">
+              <SelectValue placeholder="Time range" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="1h">1 hour</SelectItem>
+              <SelectItem value="24h">24 hours</SelectItem>
+              <SelectItem value="7d">7 days</SelectItem>
+              <SelectItem value="30d">30 days</SelectItem>
+              <SelectItem value="all">All time</SelectItem>
+            </SelectContent>
+          </Select>
 
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <p className="text-sm text-[#707070]">Market Cap</p>
-                            <p className="font-medium">${tokenData.marketCap.toLocaleString()}</p>
-                          </div>
-                          <div>
-                            <p className="text-sm text-[#707070]">24h Volume</p>
-                            <p className="font-medium">${tokenData.volume24h.toLocaleString()}</p>
-                          </div>
-                          <div>
-                            <p className="text-sm text-[#707070]">Liquidity</p>
-                            <p className="font-medium">${tokenData.liquidity.toLocaleString()}</p>
-                          </div>
-                          <div>
-                            <p className="text-sm text-[#707070]">Holders</p>
-                            <p className="font-medium">{tokenData.holders.toLocaleString()}</p>
-                          </div>
-                        </div>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={handleRefresh}
+            disabled={isLoading}
+            className="bg-[#1d1d1c] border-[#30302e] hover:bg-[#30302e]"
+          >
+            <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
+          </Button>
+        </div>
+      </div>
 
-                        <div>
-                          <p className="text-sm text-[#707070]">Created</p>
-                          <p className="font-medium">{tokenData.createdAt.toLocaleDateString()}</p>
-                        </div>
-
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-sm text-[#707070]">Safety Score</p>
-                            <p className={`text-lg font-medium ${getSafetyColor(tokenData.safetyScore)}`}>
-                              {tokenData.safetyScore.toFixed(0)}/100 - {getRiskLevel(tokenData.safetyScore)}
-                            </p>
-                          </div>
-                          {tokenData.verified ? (
-                            <Badge className="bg-[#76D484]">Verified</Badge>
-                          ) : (
-                            <Badge className="bg-[#707070]">Unverified</Badge>
-                          )}
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card className="bg-[#1d1d1c] border-[#30302e] md:col-span-2">
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-lg">Price History</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="h-64">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <LineChart data={transactionHistory}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#30302e" />
-                            <XAxis dataKey="time" stroke="#707070" />
-                            <YAxis stroke="#707070" />
-                            <Tooltip
-                              contentStyle={{ backgroundColor: "#1d1d1c", borderColor: "#30302e" }}
-                              labelStyle={{ color: "#ffffff" }}
-                            />
-                            <Line
-                              type="monotone"
-                              dataKey="price"
-                              stroke="#22CCEE"
-                              strokeWidth={2}
-                              dot={false}
-                              activeDot={{ r: 4 }}
-                            />
-                          </LineChart>
-                        </ResponsiveContainer>
-                      </div>
-                    </CardContent>
-                  </Card>
+      {selectedToken ? (
+        <div className="space-y-6">
+          {/* Token Overview Card */}
+          <Card className="bg-[#151514] border-[#30302e]">
+            <CardContent className="p-6">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <div>
+                  <p className="text-sm text-[#707070] mb-1">Price</p>
+                  <div className="flex items-center">
+                    <h3 className="text-2xl font-bold">${formatPrice(price || 0)}</h3>
+                    <span
+                      className={`ml-2 flex items-center text-sm ${priceChange24h && priceChange24h >= 0 ? "text-[#A4D756]" : "text-[#E57676]"}`}
+                    >
+                      {priceChange24h && priceChange24h >= 0 ? (
+                        <TrendingUp className="h-3 w-3 mr-1" />
+                      ) : (
+                        <TrendingDown className="h-3 w-3 mr-1" />
+                      )}
+                      {Math.abs(priceChange24h || 0).toFixed(2)}%
+                    </span>
+                  </div>
                 </div>
-              </TabsContent>
 
-              <TabsContent value="holders" className="mt-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Card className="bg-[#1d1d1c] border-[#30302e]">
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-lg">Holder Distribution</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-4">
-                        {holderDistribution.map((item, index) => (
-                          <div key={index}>
-                            <div className="flex justify-between mb-1">
-                              <span className="text-sm">{item.type}</span>
-                              <span className="text-sm">
-                                {item.percentage.toFixed(1)}% ({item.count.toLocaleString()})
-                              </span>
-                            </div>
-                            <div className="w-full bg-[#30302e] rounded-full h-2">
-                              <div
-                                className="h-2 rounded-full"
-                                style={{
-                                  width: `${item.percentage}%`,
-                                  backgroundColor: COLORS[index % COLORS.length],
-                                }}
-                              ></div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card className="bg-[#1d1d1c] border-[#30302e]">
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-lg">Top Holders</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Wallet</TableHead>
-                            <TableHead>Balance</TableHead>
-                            <TableHead>Percentage</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {Array.from({ length: 5 }).map((_, i) => {
-                            const percentage = 20 - i * 3 + Math.random() * 2
-                            return (
-                              <TableRow key={i}>
-                                <TableCell>
-                                  {Math.random().toString(36).substring(2, 8)}...
-                                  {Math.random().toString(36).substring(2, 6)}
-                                </TableCell>
-                                <TableCell>{((tokenData.holders * percentage) / 100).toFixed(0)}</TableCell>
-                                <TableCell>{percentage.toFixed(2)}%</TableCell>
-                              </TableRow>
-                            )
-                          })}
-                        </TableBody>
-                      </Table>
-                    </CardContent>
-                  </Card>
+                <div>
+                  <p className="text-sm text-[#707070] mb-1">24h Volume</p>
+                  <h3 className="text-2xl font-bold">${formatNumber(1250000)}</h3>
                 </div>
-              </TabsContent>
 
-              <TabsContent value="transactions" className="mt-4">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <Card className="bg-[#1d1d1c] border-[#30302e] md:col-span-2">
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-lg">Transaction Volume</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="h-64">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <LineChart data={volumeData}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#30302e" />
-                            <XAxis dataKey="time" stroke="#707070" />
-                            <YAxis stroke="#707070" />
-                            <Tooltip
-                              contentStyle={{ backgroundColor: "#1d1d1c", borderColor: "#30302e" }}
-                              labelStyle={{ color: "#ffffff" }}
-                            />
-                            <Line
-                              type="monotone"
-                              dataKey="buys"
-                              stroke="#76D484"
-                              strokeWidth={2}
-                              dot={false}
-                              activeDot={{ r: 4 }}
-                              name="Buys"
-                            />
-                            <Line
-                              type="monotone"
-                              dataKey="sells"
-                              stroke="#E57676"
-                              strokeWidth={2}
-                              dot={false}
-                              activeDot={{ r: 4 }}
-                              name="Sells"
-                            />
-                          </LineChart>
-                        </ResponsiveContainer>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card className="bg-[#1d1d1c] border-[#30302e]">
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-lg">Transaction Stats</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-4">
-                        <div>
-                          <p className="text-sm text-[#707070]">24h Transactions</p>
-                          <p className="text-2xl font-medium">{Math.floor(Math.random() * 10000).toLocaleString()}</p>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <p className="text-sm text-[#707070]">Buys</p>
-                            <div className="flex items-center">
-                              <TrendingUp className="h-4 w-4 mr-1 text-[#76D484]" />
-                              <p className="font-medium">{Math.floor(Math.random() * 6000).toLocaleString()}</p>
-                            </div>
-                          </div>
-                          <div>
-                            <p className="text-sm text-[#707070]">Sells</p>
-                            <div className="flex items-center">
-                              <TrendingDown className="h-4 w-4 mr-1 text-[#E57676]" />
-                              <p className="font-medium">{Math.floor(Math.random() * 4000).toLocaleString()}</p>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div>
-                          <p className="text-sm text-[#707070]">Unique Wallets</p>
-                          <div className="flex items-center">
-                            <Users className="h-4 w-4 mr-1 text-[#22CCEE]" />
-                            <p className="font-medium">{Math.floor(Math.random() * 2000).toLocaleString()}</p>
-                          </div>
-                        </div>
-
-                        <div>
-                          <p className="text-sm text-[#707070]">Average Transaction</p>
-                          <p className="font-medium">${Math.floor(Math.random() * 1000 + 100).toLocaleString()}</p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
+                <div>
+                  <p className="text-sm text-[#707070] mb-1">Market Cap</p>
+                  <h3 className="text-2xl font-bold">${formatNumber(45000000)}</h3>
                 </div>
-              </TabsContent>
 
-              <TabsContent value="whales" className="mt-4">
-                <Card className="bg-[#1d1d1c] border-[#30302e]">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-lg">Whale Activity</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Wallet</TableHead>
-                          <TableHead>Type</TableHead>
-                          <TableHead>Amount</TableHead>
-                          <TableHead>Value</TableHead>
-                          <TableHead>Time</TableHead>
-                          <TableHead className="text-right">Action</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {whaleActivity.map((activity, i) => (
-                          <TableRow key={i}>
-                            <TableCell>
-                              <div>
-                                <div className="font-medium">{activity.wallet}</div>
-                                {activity.label && <div className="text-xs text-[#707070]">{activity.label}</div>}
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <Badge className={activity.type === "buy" ? "bg-[#76D484]" : "bg-[#E57676]"}>
-                                {activity.type.toUpperCase()}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>{activity.amount.toLocaleString()} tokens</TableCell>
-                            <TableCell>${activity.value.toLocaleString()}</TableCell>
-                            <TableCell>
-                              <div className="flex items-center">
-                                <Clock className="h-3 w-3 mr-1 text-[#707070]" />
-                                {activity.time}
-                              </div>
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <Button variant="ghost" size="sm" className="h-8 w-8">
-                                <ExternalLink className="h-4 w-4" />
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-            </Tabs>
-          )}
-        </CardContent>
-      </Card>
+                <div>
+                  <p className="text-sm text-[#707070] mb-1">Holders</p>
+                  <h3 className="text-2xl font-bold">{formatNumber(12500)}</h3>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
+                <div>
+                  <p className="text-sm text-[#707070] mb-1">Circulating Supply</p>
+                  <h3 className="text-lg font-bold">{formatNumber(850000000)}</h3>
+                </div>
+
+                <div>
+                  <p className="text-sm text-[#707070] mb-1">Total Supply</p>
+                  <h3 className="text-lg font-bold">{formatNumber(1000000000)}</h3>
+                </div>
+
+                <div>
+                  <p className="text-sm text-[#707070] mb-1">Total Liquidity</p>
+                  <h3 className="text-lg font-bold">${formatNumber(3500000)}</h3>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between mt-6 pt-6 border-t border-[#30302e]">
+                <div className="flex items-center space-x-4">
+                  <div className="flex items-center">
+                    <Clock className="h-4 w-4 text-[#707070] mr-2" />
+                    <span className="text-sm text-[#707070]">Created: 3 months ago</span>
+                  </div>
+
+                  <div className="flex items-center">
+                    <Info className="h-4 w-4 text-[#707070] mr-2" />
+                    <span className="text-sm text-[#707070]">Transactions: 45,678</span>
+                  </div>
+                </div>
+
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-[#22CCEE] hover:text-[#22CCEE] hover:bg-[#1d1d1c]"
+                  onClick={() => window.open(`https://solscan.io/token/${selectedToken}`, "_blank")}
+                >
+                  View on Solscan
+                  <ExternalLink className="ml-1 h-3 w-3" />
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Analytics Tabs */}
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <TabsList className="mb-6">
+              <TabsTrigger value="price">
+                <TrendingUp className="h-4 w-4 mr-2" />
+                Price History
+              </TabsTrigger>
+              <TabsTrigger value="volume">
+                <BarChart3 className="h-4 w-4 mr-2" />
+                Volume Analysis
+              </TabsTrigger>
+            </TabsList>
+
+            {/* Price History Tab */}
+            <TabsContent value="price">
+              <Card className="bg-[#151514] border-[#30302e]">
+                <CardHeader>
+                  <CardTitle>Price History</CardTitle>
+                  <CardDescription>Token price over time with volume indicators</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="h-[400px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={priceHistoryData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                        <defs>
+                          <linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#22CCEE" stopOpacity={0.8} />
+                            <stop offset="95%" stopColor="#22CCEE" stopOpacity={0} />
+                          </linearGradient>
+                        </defs>
+                        <XAxis dataKey="time" />
+                        <YAxis domain={["auto", "auto"]} tickFormatter={(value) => `${formatPrice(value)}`} />
+                        <CartesianGrid strokeDasharray="3 3" stroke="#30302e" />
+                        <Tooltip
+                          formatter={(value) => [`$${formatPrice(value as number)}`, "Price"]}
+                          labelFormatter={(label) => `Time: ${label}`}
+                        />
+                        <Area
+                          type="monotone"
+                          dataKey="price"
+                          stroke="#22CCEE"
+                          fillOpacity={1}
+                          fill="url(#colorPrice)"
+                        />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
+                    <div className="bg-[#1d1d1c] p-3 rounded">
+                      <p className="text-xs text-[#707070]">All-Time High</p>
+                      <p className="text-lg font-medium">$0.00001650</p>
+                      <p className="text-xs text-[#707070]">23:00 Today</p>
+                    </div>
+
+                    <div className="bg-[#1d1d1c] p-3 rounded">
+                      <p className="text-xs text-[#707070]">All-Time Low</p>
+                      <p className="text-lg font-medium">$0.00001234</p>
+                      <p className="text-xs text-[#707070]">00:00 Today</p>
+                    </div>
+
+                    <div className="bg-[#1d1d1c] p-3 rounded">
+                      <p className="text-xs text-[#707070]">24h Change</p>
+                      <p className="text-lg font-medium text-[#A4D756]">+33.71%</p>
+                    </div>
+
+                    <div className="bg-[#1d1d1c] p-3 rounded">
+                      <p className="text-xs text-[#707070]">Price Volatility</p>
+                      <p className="text-lg font-medium">High</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Volume Analysis Tab */}
+            <TabsContent value="volume">
+              <Card className="bg-[#151514] border-[#30302e]">
+                <CardHeader>
+                  <CardTitle>Volume Analysis</CardTitle>
+                  <CardDescription>Trading volume over time</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="h-[400px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={volumeData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                        <defs>
+                          <linearGradient id="colorVolume" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#A4D756" stopOpacity={0.8} />
+                            <stop offset="95%" stopColor="#A4D756" stopOpacity={0} />
+                          </linearGradient>
+                        </defs>
+                        <XAxis dataKey="time" />
+                        <YAxis tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`} />
+                        <CartesianGrid strokeDasharray="3 3" stroke="#30302e" />
+                        <Tooltip
+                          formatter={(value) => [`$${formatNumber(value as number)}`, "Volume"]}
+                          labelFormatter={(label) => `Time: ${label}`}
+                        />
+                        <Area
+                          type="monotone"
+                          dataKey="volume"
+                          stroke="#A4D756"
+                          fillOpacity={1}
+                          fill="url(#colorVolume)"
+                        />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+                    <div className="bg-[#1d1d1c] p-3 rounded">
+                      <p className="text-xs text-[#707070]">Total 24h Volume</p>
+                      <p className="text-lg font-medium">$1,250,000</p>
+                    </div>
+
+                    <div className="bg-[#1d1d1c] p-3 rounded">
+                      <p className="text-xs text-[#707070]">Peak Volume</p>
+                      <p className="text-lg font-medium">$132,000</p>
+                      <p className="text-xs text-[#707070]">19:00 Today</p>
+                    </div>
+
+                    <div className="bg-[#1d1d1c] p-3 rounded">
+                      <p className="text-xs text-[#707070]">Volume Change</p>
+                      <p className="text-lg font-medium text-[#A4D756]">+28.5%</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
+        </div>
+      ) : (
+        <Card className="bg-[#151514] border-[#30302e]">
+          <CardContent className="p-12 text-center">
+            <Search className="h-12 w-12 mx-auto text-[#707070] mb-4" />
+            <h3 className="text-xl font-medium mb-2">Select a token to view analytics</h3>
+            <p className="text-[#707070] mb-6">Choose a token from the dropdown above to view detailed analytics</p>
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }
