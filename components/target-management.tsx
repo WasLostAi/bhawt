@@ -138,7 +138,11 @@ export default function TargetManagement({ setActiveTargets }: TargetProps) {
       priceLoading: true,
     }
 
-    setTargets([...targets, target])
+    // Update targets state with the new target
+    const updatedTargets = [...targets, target]
+    setTargets(updatedTargets)
+
+    // Reset the form
     setNewTarget({
       name: "",
       mintAddress: "",
@@ -148,7 +152,10 @@ export default function TargetManagement({ setActiveTargets }: TargetProps) {
       active: true,
     })
 
-    updateActiveTargets([...targets, target])
+    // Update active targets count
+    const activeCount = updatedTargets.filter((t) => t.active).length
+    setActiveTargets(activeCount)
+    console.log(`Updated active targets count: ${activeCount}`)
 
     // Fetch price for the new target
     getTokenQuote(
@@ -235,6 +242,7 @@ export default function TargetManagement({ setActiveTargets }: TargetProps) {
   const updateActiveTargets = (targetList: SnipeTarget[]) => {
     const activeCount = targetList.filter((t) => t.active).length
     setActiveTargets(activeCount)
+    console.log(`Updated active targets count: ${activeCount}`)
   }
 
   return (

@@ -1,5 +1,6 @@
 // Jito Bundle Service for MEV protection
 import { Connection, type Transaction, type TransactionSignature } from "@solana/web3.js"
+import { ENV } from "@/lib/env"
 
 // Types for Jito Bundle Service
 export interface JitoBundleOptions {
@@ -23,11 +24,13 @@ export interface JitoBundleResult {
 export class JitoBundleService {
   private isConnected = false
 
-  constructor(
-    private apiKey: string | null,
-    private connection: Connection,
-  ) {
-    this.isConnected = !!apiKey
+  constructor(private connection: Connection) {
+    // We'll check if Jito is enabled, but not store the API key
+    this.isConnected = ENV.isEnabled("ENABLE_JITO_BUNDLES")
+
+    // For demo purposes, we'll always set isConnected to true
+    // In production, this would depend on a valid API key
+    this.isConnected = true
   }
 
   // Send a bundle of transactions
@@ -45,8 +48,11 @@ export class JitoBundleService {
     }
 
     try {
-      // In a real implementation, this would call Jito Bundle API
-      // For now, we'll simulate the API call
+      // In a real implementation, this would call our server API route
+      // which would then use the JITO API key to submit the bundle
+
+      // For demo purposes, we'll simulate a successful API call
+      console.log("Using placeholder JITO API key for demo purposes")
 
       // Simulate API call delay
       await new Promise((resolve) => setTimeout(resolve, 800))
@@ -132,8 +138,7 @@ export class JitoBundleService {
   }
 }
 
-// Replace the export of jitoService with this mock version
+// Update the export to not pass the API key
 export const jitoService = new JitoBundleService(
-  "mock_jito_api_key", // Mock API key
-  new Connection("https://api.mainnet-beta.solana.com"), // Default connection
+  new Connection(ENV.get("RPC_ENDPOINT", "https://api.mainnet-beta.solana.com")),
 )

@@ -51,7 +51,12 @@ export default function Dashboard() {
 
   const handleTabChange = (tab: string) => {
     try {
+      console.log(`Switching to tab: ${tab}`)
       setActiveTab(tab)
+      // Force a re-render if needed
+      setTimeout(() => {
+        window.dispatchEvent(new Event("resize"))
+      }, 100)
     } catch (error) {
       console.error("Error switching tabs:", error)
       // Fallback to overview tab if there's an error

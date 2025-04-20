@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Save, RefreshCw, Zap, AlertTriangle } from "lucide-react"
 import { ENV } from "@/lib/env"
 import { Badge } from "@/components/ui/badge"
+import QuickNodeConfig from "./quicknode-config"
 
 export default function ConfigPanel() {
   const [priorityFee, setPriorityFee] = useState(Number(ENV.get("DEFAULT_PRIORITY_FEE", "250000")) / 1_000_000_000)
@@ -37,6 +38,7 @@ export default function ConfigPanel() {
             <TabsList className="bg-[#1d1d1c] border border-[#30302e]">
               <TabsTrigger value="performance">Performance</TabsTrigger>
               <TabsTrigger value="endpoints">Endpoints</TabsTrigger>
+              <TabsTrigger value="quicknode">QuickNode</TabsTrigger>
               <TabsTrigger value="notifications">Notifications</TabsTrigger>
               <TabsTrigger value="environment">Environment</TabsTrigger>
             </TabsList>
@@ -151,6 +153,10 @@ export default function ConfigPanel() {
               </div>
             </TabsContent>
 
+            <TabsContent value="quicknode" className="mt-4">
+              <QuickNodeConfig />
+            </TabsContent>
+
             <TabsContent value="notifications" className="mt-4 space-y-4">
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
@@ -203,10 +209,7 @@ export default function ConfigPanel() {
                     </div>
 
                     <div className="text-sm text-[#707070]">Jupiter API Key:</div>
-                    <div className="text-sm truncate">
-                      {ENV.get("JUPITER_API_KEY").substring(0, 4)}...
-                      {ENV.get("JUPITER_API_KEY").substring(ENV.get("JUPITER_API_KEY").length - 4)}
-                    </div>
+                    <div className="text-sm truncate">{ENV.get("JUPITER_API_KEY") ? "••••••••" : "Not configured"}</div>
 
                     <div className="text-sm text-[#707070]">Default Priority Fee:</div>
                     <div className="text-sm">{Number(ENV.get("DEFAULT_PRIORITY_FEE")) / 1_000_000_000} SOL</div>

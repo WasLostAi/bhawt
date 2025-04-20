@@ -105,7 +105,6 @@ class BundleEngine {
 
   constructor(
     private connection: Connection = new Connection(ENV.get("RPC_ENDPOINT", "https://api.mainnet-beta.solana.com")),
-    private apiKey: string = ENV.get("JITO_API_KEY", "mock_jito_api_key"),
     private defaultOptions: Partial<BundleOptions> = {
       strategy: "standard",
       tipLamports: 250000, // 0.00025 SOL
@@ -117,7 +116,8 @@ class BundleEngine {
       priorityLevel: "medium",
     },
   ) {
-    this.isConnected = !!apiKey
+    // Check if Jito bundles are enabled
+    this.isConnected = ENV.isEnabled("ENABLE_JITO_BUNDLES")
 
     // Initialize with default options from environment
     this.defaultOptions = {

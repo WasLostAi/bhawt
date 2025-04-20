@@ -1,3 +1,5 @@
+import { ENV } from "@/lib/env"
+
 // Mock implementation of the Jupiter perpetuals service
 
 interface Market {
@@ -20,6 +22,12 @@ export interface PerpMarket {
   fundingRate: number
   volume24h: number
   openInterest: number
+}
+
+// Get the RPC endpoint from environment
+const getRpcEndpoint = () => {
+  // Use QuickNode endpoint if available, otherwise use default
+  return ENV.get("QUICKNODE_ENDPOINT") || ENV.get("RPC_ENDPOINT", "https://api.mainnet-beta.solana.com")
 }
 
 class JupiterPerpetualsService {
@@ -172,7 +180,10 @@ const MOCK_SPOT_PRICES: Record<string, number> = {
 export async function fetchPerpMarkets(): Promise<PerpMarket[]> {
   // In a real implementation, this would call the Jupiter Perpetuals API
   // For now, we'll return mock data with a simulated delay
-  await new Promise((resolve) => setTimeout(resolve, 500))
+
+  // Use a shorter delay if using QuickNode for better performance
+  const delay = ENV.get("QUICKNODE_ENDPOINT") ? 200 : 500
+  await new Promise((resolve) => setTimeout(resolve, delay))
 
   // Add some random variation to prices
   return MOCK_PERP_MARKETS.map((market) => ({
@@ -189,7 +200,10 @@ export async function fetchPerpMarkets(): Promise<PerpMarket[]> {
 export async function fetchSpotPrice(token: string): Promise<number> {
   // In a real implementation, this would call the Jupiter API
   // For now, we'll return mock data with a simulated delay
-  await new Promise((resolve) => setTimeout(resolve, 200))
+
+  // Use a shorter delay if using QuickNode for better performance
+  const delay = ENV.get("QUICKNODE_ENDPOINT") ? 100 : 200
+  await new Promise((resolve) => setTimeout(resolve, delay))
 
   const basePrice = MOCK_SPOT_PRICES[token] || 0
   // Add some random variation

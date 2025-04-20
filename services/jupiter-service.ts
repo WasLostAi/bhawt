@@ -202,6 +202,12 @@ const DEFAULT_SNIPE_OPTIONS: SnipeOptions = {
 // Jupiter API base URL
 const JUPITER_API_BASE_URL = "https://quote-api.jup.ag/v6"
 
+// Get the RPC endpoint from environment
+const getRpcEndpoint = () => {
+  // Use QuickNode endpoint if available, otherwise use default
+  return ENV.get("QUICKNODE_ENDPOINT") || ENV.get("RPC_ENDPOINT", "https://api.mainnet-beta.solana.com")
+}
+
 // Cache for quotes to reduce API calls
 interface QuoteCache {
   [key: string]: {
@@ -388,12 +394,21 @@ export async function getQuote(
           const controller = new AbortController()
           const timeoutId = setTimeout(() => controller.abort(), options.timeout || 10000)
 
+          // Add QuickNode endpoint as a header if available
+          const headers: HeadersInit = {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+          }
+
+          // Add QuickNode endpoint as a header if available
+          const quicknodeEndpoint = ENV.get("QUICKNODE_ENDPOINT")
+          if (quicknodeEndpoint) {
+            headers["x-quicknode-url"] = quicknodeEndpoint
+          }
+
           const response = await fetch(`${JUPITER_API_BASE_URL}/quote?${queryParams.toString()}`, {
             signal: controller.signal,
-            headers: {
-              Accept: "application/json",
-              "Content-Type": "application/json",
-            },
+            headers,
           })
 
           clearTimeout(timeoutId)
@@ -547,12 +562,21 @@ export async function executeSwap(
             onProgress(20, "Sending swap request to Jupiter API...")
           }
 
+          // Add QuickNode endpoint as a header if available
+          const headers: HeadersInit = {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          }
+
+          // Add QuickNode endpoint as a header if available
+          const quicknodeEndpoint = ENV.get("QUICKNODE_ENDPOINT")
+          if (quicknodeEndpoint) {
+            headers["x-quicknode-url"] = quicknodeEndpoint
+          }
+
           const response = await fetch(`${JUPITER_API_BASE_URL}/swap`, {
             method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Accept: "application/json",
-            },
+            headers,
             body: JSON.stringify(params),
             signal: controller.signal,
           })
