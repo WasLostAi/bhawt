@@ -1,278 +1,150 @@
 "use client"
+
 import { useState } from "react"
 import {
-  Sidebar,
-  SidebarContent,
-  SidebarFooter,
-  SidebarHeader,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  SidebarGroup,
-  SidebarGroupLabel,
-  SidebarGroupContent,
-} from "@/components/ui/sidebar"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Button } from "@/components/ui/button"
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
-import {
-  Home,
+  LayoutDashboard,
   Target,
+  ListChecks,
+  FishIcon as Whale,
   Zap,
-  Activity,
-  Settings,
-  User,
-  BarChart3,
-  TrendingUp,
   Package,
-  Search,
-  LogOut,
-  ChevronDown,
-  Smartphone,
+  BarChart3,
+  Settings,
+  ChevronRight,
+  Menu,
+  X,
 } from "lucide-react"
+import { cn } from "@/lib/utils"
 import WalletConnect from "./wallet-connect"
-import { useMediaQuery } from "@/hooks/use-mobile"
 
-interface AppSidebarProps {
+interface SidebarProps {
   activeTab: string
   handleTabChange: (tab: string) => void
 }
 
-export function AppSidebar({ activeTab, handleTabChange }: AppSidebarProps) {
-  const [navigationOpen, setNavigationOpen] = useState(true)
-  const [advancedOpen, setAdvancedOpen] = useState(true)
-  const isMobile = useMediaQuery("(max-width: 768px)")
+export function AppSidebar({ activeTab, handleTabChange }: SidebarProps) {
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+
+  const navItems = [
+    {
+      id: "overview",
+      label: "Overview",
+      icon: LayoutDashboard,
+    },
+    {
+      id: "targets",
+      label: "Targets",
+      icon: Target,
+    },
+    {
+      id: "transactions",
+      label: "Transactions",
+      icon: ListChecks,
+    },
+    {
+      id: "whales",
+      label: "Whale Monitor",
+      icon: Whale,
+    },
+    {
+      id: "strategies",
+      label: "Strategies",
+      icon: Zap,
+    },
+    {
+      id: "bundles",
+      label: "Bundle Manager",
+      icon: Package,
+    },
+    {
+      id: "perpetuals",
+      label: "Perpetuals",
+      icon: BarChart3,
+    },
+    {
+      id: "analytics",
+      label: "Analytics",
+      icon: BarChart3,
+    },
+    {
+      id: "settings",
+      label: "Settings",
+      icon: Settings,
+    },
+  ]
+
+  const toggleMobileMenu = () => {
+    setIsMobileMenuOpen(!isMobileMenuOpen)
+  }
 
   return (
-    <Sidebar variant={isMobile ? "floating" : "sidebar"} collapsible="icon" className="bg-[#0C0C0C] border-[#30302e]">
-      <SidebarHeader className="px-2 py-4">
-        <div className="flex items-center px-2">
-          <div className="h-8 w-8 rounded-full bg-gradient-to-br from-[#22CCEE] to-[#2ED3B7] flex items-center justify-center mr-2">
-            <Zap className="h-5 w-5 text-[#0C0C0C]" />
-          </div>
-          <div className="font-bold text-xl font-syne">SOL Sniper</div>
-        </div>
-        <div className="mt-4">
-          <div className="px-2">
-            <Label htmlFor="sidebar-search" className="sr-only">
-              Search
-            </Label>
-            <div className="relative">
-              <Search className="absolute left-2 top-2.5 h-4 w-4 text-[#707070]" />
-              <Input id="sidebar-search" placeholder="Search..." className="pl-8 bg-[#151514] border-[#30302e]" />
-            </div>
-          </div>
-        </div>
-      </SidebarHeader>
+    <>
+      {/* Mobile menu button */}
+      <button
+        className="fixed top-4 left-4 z-50 md:hidden bg-[#151514] border border-[#30302e] rounded-md p-2"
+        onClick={toggleMobileMenu}
+        aria-label={isMobileMenuOpen ? "Close menu" : "Open menu"}
+      >
+        {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+      </button>
 
-      <SidebarContent>
-        <Collapsible open={navigationOpen} onOpenChange={setNavigationOpen} className="group/collapsible">
-          <SidebarGroup>
-            <SidebarGroupLabel asChild>
-              <CollapsibleTrigger className="flex w-full items-center justify-between">
-                Navigation
-                <ChevronDown className="h-4 w-4 transition-transform group-data-[state=open]/collapsible:rotate-180" />
-              </CollapsibleTrigger>
-            </SidebarGroupLabel>
-            <CollapsibleContent>
-              <SidebarGroupContent>
-                <SidebarMenu>
-                  <SidebarMenuItem>
-                    <TooltipProvider delayDuration={300}>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <SidebarMenuButton
-                            isActive={activeTab === "overview"}
-                            onClick={() => handleTabChange("overview")}
-                            tooltip="Dashboard Overview"
-                          >
-                            <Home className="h-4 w-4 mr-2" />
-                            <span>Overview</span>
-                          </SidebarMenuButton>
-                        </TooltipTrigger>
-                        <TooltipContent side="right">Dashboard Overview</TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </SidebarMenuItem>
-                  <SidebarMenuItem>
-                    <TooltipProvider delayDuration={300}>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <SidebarMenuButton
-                            isActive={activeTab === "targets"}
-                            onClick={() => handleTabChange("targets")}
-                            tooltip="Target Management"
-                          >
-                            <Target className="h-4 w-4 mr-2" />
-                            <span>Targets</span>
-                          </SidebarMenuButton>
-                        </TooltipTrigger>
-                        <TooltipContent side="right">Target Management</TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </SidebarMenuItem>
-                  <SidebarMenuItem>
-                    <TooltipProvider delayDuration={300}>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <SidebarMenuButton
-                            isActive={activeTab === "transactions"}
-                            onClick={() => handleTabChange("transactions")}
-                            tooltip="Transaction Monitor"
-                          >
-                            <Activity className="h-4 w-4 mr-2" />
-                            <span>Transactions</span>
-                          </SidebarMenuButton>
-                        </TooltipTrigger>
-                        <TooltipContent side="right">Transaction Monitor</TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </SidebarMenuItem>
-                  <SidebarMenuItem>
-                    <TooltipProvider delayDuration={300}>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <SidebarMenuButton
-                            isActive={activeTab === "whales"}
-                            onClick={() => handleTabChange("whales")}
-                            tooltip="Whale Tracking"
-                          >
-                            <BarChart3 className="h-4 w-4 mr-2" />
-                            <span>Whale Tracking</span>
-                          </SidebarMenuButton>
-                        </TooltipTrigger>
-                        <TooltipContent side="right">Whale Tracking</TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </SidebarMenuItem>
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </CollapsibleContent>
-          </SidebarGroup>
-        </Collapsible>
-
-        <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen} className="group/collapsible">
-          <SidebarGroup>
-            <SidebarGroupLabel asChild>
-              <CollapsibleTrigger className="flex w-full items-center justify-between">
-                Advanced
-                <ChevronDown className="h-4 w-4 transition-transform group-data-[state=open]/collapsible:rotate-180" />
-              </CollapsibleTrigger>
-            </SidebarGroupLabel>
-            <CollapsibleContent>
-              <SidebarGroupContent>
-                <SidebarMenu>
-                  <SidebarMenuItem>
-                    <TooltipProvider delayDuration={300}>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <SidebarMenuButton
-                            isActive={activeTab === "strategies"}
-                            onClick={() => handleTabChange("strategies")}
-                            tooltip="Strategy Monitor"
-                          >
-                            <TrendingUp className="h-4 w-4 mr-2" />
-                            <span>Strategies</span>
-                          </SidebarMenuButton>
-                        </TooltipTrigger>
-                        <TooltipContent side="right">Strategy Monitor</TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </SidebarMenuItem>
-                  <SidebarMenuItem>
-                    <TooltipProvider delayDuration={300}>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <SidebarMenuButton
-                            isActive={activeTab === "bundles"}
-                            onClick={() => handleTabChange("bundles")}
-                            tooltip="Bundle Manager"
-                          >
-                            <Package className="h-4 w-4 mr-2" />
-                            <span>Bundle Manager</span>
-                          </SidebarMenuButton>
-                        </TooltipTrigger>
-                        <TooltipContent side="right">Bundle Manager</TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </SidebarMenuItem>
-                  <SidebarMenuItem>
-                    <TooltipProvider delayDuration={300}>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <SidebarMenuButton
-                            isActive={activeTab === "perpetuals"}
-                            onClick={() => handleTabChange("perpetuals")}
-                            tooltip="Perpetual Arbitrage"
-                          >
-                            <TrendingUp className="h-4 w-4 mr-2" />
-                            <span>Perpetual Arbitrage</span>
-                          </SidebarMenuButton>
-                        </TooltipTrigger>
-                        <TooltipContent side="right">Perpetual Arbitrage</TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </SidebarMenuItem>
-                  <SidebarMenuItem>
-                    <TooltipProvider delayDuration={300}>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <SidebarMenuButton
-                            isActive={activeTab === "settings"}
-                            onClick={() => handleTabChange("settings")}
-                            tooltip="Bot Configuration"
-                          >
-                            <Settings className="h-4 w-4 mr-2" />
-                            <span>Settings</span>
-                          </SidebarMenuButton>
-                        </TooltipTrigger>
-                        <TooltipContent side="right">Bot Configuration</TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </SidebarMenuItem>
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </CollapsibleContent>
-          </SidebarGroup>
-        </Collapsible>
-
-        {/* Mobile-specific navigation */}
-        {isMobile && (
-          <SidebarGroup>
-            <SidebarGroupLabel>Mobile Options</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                <SidebarMenuItem>
-                  <SidebarMenuButton onClick={() => {}}>
-                    <Smartphone className="h-4 w-4 mr-2" />
-                    <span>Mobile View</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
+      {/* Sidebar for desktop and mobile */}
+      <div
+        className={cn(
+          "fixed inset-y-0 left-0 z-40 w-64 bg-[#151514] border-r border-[#30302e] transform transition-transform duration-300 ease-in-out md:translate-x-0",
+          isMobileMenuOpen ? "translate-x-0" : "-translate-x-full",
         )}
-      </SidebarContent>
-
-      <SidebarFooter className="border-t border-[#30302e] p-4">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center">
-            <div className="h-8 w-8 rounded-full bg-[#30302e] flex items-center justify-center mr-2">
-              <User className="h-4 w-4" />
-            </div>
-            <div>
-              <div className="font-medium">Trader</div>
-              <div className="text-xs text-[#707070]">Pro Account</div>
-            </div>
+      >
+        <div className="flex flex-col h-full">
+          {/* Logo */}
+          <div className="p-6 border-b border-[#30302e]">
+            <h1 className="text-2xl font-bold font-syne bg-gradient-to-r from-[#22CCEE] to-[#A4D756] text-transparent bg-clip-text">
+              SOL Sniper Bot
+            </h1>
           </div>
-          <Button variant="ghost" size="icon" className="h-8 w-8 text-[#707070]">
-            <LogOut className="h-4 w-4" />
-          </Button>
+
+          {/* Navigation */}
+          <nav className="flex-1 overflow-y-auto py-4">
+            <ul className="space-y-1 px-2">
+              {navItems.map((item) => (
+                <li key={item.id}>
+                  <button
+                    className={cn(
+                      "flex items-center w-full px-4 py-2 rounded-md text-sm transition-colors",
+                      activeTab === item.id
+                        ? "bg-[#1d1d1c] text-white"
+                        : "text-[#707070] hover:bg-[#1d1d1c] hover:text-white",
+                    )}
+                    onClick={() => {
+                      handleTabChange(item.id)
+                      setIsMobileMenuOpen(false)
+                    }}
+                  >
+                    <item.icon className="h-5 w-5 mr-3" />
+                    {item.label}
+                    <ChevronRight
+                      className={cn("ml-auto h-4 w-4 transition-transform", activeTab === item.id ? "rotate-90" : "")}
+                    />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </nav>
+
+          {/* Wallet connect */}
+          <div className="p-4 border-t border-[#30302e]">
+            <WalletConnect />
+          </div>
         </div>
-        <WalletConnect />
-      </SidebarFooter>
-    </Sidebar>
+      </div>
+
+      {/* Overlay for mobile */}
+      {isMobileMenuOpen && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 z-30 md:hidden"
+          onClick={() => setIsMobileMenuOpen(false)}
+        />
+      )}
+    </>
   )
 }

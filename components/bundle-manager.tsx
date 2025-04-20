@@ -1,538 +1,352 @@
 "use client"
 
-import { useState, useEffect, useCallback, useRef } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { useState } from "react"
+import { Plus, Trash2, Play, Pause, Clock, Check, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Badge } from "@/components/ui/badge"
-import { Zap, AlertTriangle, RefreshCw, Settings } from "lucide-react"
-import { useToast } from "@/components/ui/use-toast"
-import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Slider } from "@/components/ui/slider"
-import { useJupiterContext } from "@/contexts/jupiter-context"
 
-// Default configuration
-const DEFAULT_CONFIG = {
-  bundleTtl: 100,
-  priorityFee: 100000,
-  maxRetries: 3,
-  useDecoys: false,
-  timeJitter: true,
-  rpcEndpoint: "jito",
-  enabled: false,
-}
-
-// Mock data for bundles and transactions
-const MOCK_BUNDLES = [
+// Mock bundle data
+const mockBundles = [
   {
-    id: "bundle-123456",
-    strategy: "bootstrap",
-    status: "pending",
-    createdAt: Date.now() - 300000,
-    transactions: [],
+    id: "bundle1",
+    name: "BONK Sniper Bundle",
+    description: "Snipe BONK token with priority",
+    transactions: 3,
+    status: "ready",
+    priority: true,
   },
   {
-    id: "bundle-234567",
-    strategy: "creation-aware",
-    status: "confirmed",
-    createdAt: Date.now() - 900000,
-    transactions: ["tx1", "tx2"],
+    id: "bundle2",
+    name: "WIF Arbitrage",
+    description: "Arbitrage WIF across multiple DEXs",
+    transactions: 5,
+    status: "running",
+    priority: true,
+  },
+  {
+    id: "bundle3",
+    name: "JTO Liquidation Protection",
+    description: "Protect JTO position from liquidation",
+    transactions: 2,
+    status: "completed",
+    priority: false,
   },
 ]
 
-const MOCK_TRANSACTIONS = [
+// Mock bundle execution history
+const mockHistory = [
   {
-    id: "tx1",
-    bundleId: "bundle-234567",
-    type: "swap",
-    status: "confirmed",
-    createdAt: Date.now() - 900000,
-    signature: "5UxV7...8Ypz",
+    id: "exec1",
+    bundleId: "bundle2",
+    bundleName: "WIF Arbitrage",
+    status: "success",
+    timestamp: new Date().getTime() - 3600000,
+    profit: "+0.25 SOL",
   },
   {
-    id: "tx2",
-    bundleId: "bundle-234567",
-    type: "liquidity",
-    status: "confirmed",
-    createdAt: Date.now() - 890000,
-    signature: "3KmN2...9Rqx",
+    id: "exec2",
+    bundleId: "bundle1",
+    bundleName: "BONK Sniper Bundle",
+    status: "failed",
+    timestamp: new Date().getTime() - 7200000,
+    profit: "0 SOL",
+  },
+  {
+    id: "exec3",
+    bundleId: "bundle3",
+    bundleName: "JTO Liquidation Protection",
+    status: "success",
+    timestamp: new Date().getTime() - 86400000,
+    profit: "+0.12 SOL",
   },
 ]
 
 export default function BundleManager() {
-  const { toast } = useToast()
-  const { walletPublicKey } = useJupiterContext()
+  const [bundles, setBundles] = useState(mockBundles)
+  const [history, setHistory] = useState(mockHistory)
+  const [isAdding, setIsAdding] = useState(false)
+  const [newBundle, setNewBundle] = useState({
+    name: "",
+    description: "",
+    transactions: 0,
+    status: "ready",
+    priority: false,
+  })
 
-  // Use refs to track initialization
-  const initialized = useRef(false)
+  const handleAddBundle = () => {
+    if (!newBundle.name) return
 
-  const [isEnabled, setIsEnabled] = useState(false)
-  const [config, setConfig] = useState(DEFAULT_CONFIG)
-  const [bundles, setBundles] = useState<any[]>([])
-  const [transactions, setTransactions] = useState<any[]>([])
-  const [selectedStrategy, setSelectedStrategy] = useState("bootstrap")
-  const [showSettings, setShowSettings] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
-
-  // Initialize once with mock data
-  useEffect(() => {
-    if (initialized.current) return
-
-    // Set mock data
-    setBundles(MOCK_BUNDLES)
-    setTransactions(MOCK_TRANSACTIONS)
-    initialized.current = true
-
-    // Set up polling interval
-    const interval = setInterval(() => {
-      // In a real app, this would fetch updated data
-      // For now, we'll just leave it empty to avoid state updates
-    }, 5000)
-
-    return () => clearInterval(interval)
-  }, [])
-
-  // Toggle bundle engine
-  const handleToggleEngine = useCallback(
-    (enabled: boolean) => {
-      setIsEnabled(enabled)
-
-      toast({
-        title: enabled ? "Bundle Engine Started" : "Bundle Engine Stopped",
-        description: enabled
-          ? "Now monitoring for bundle opportunities"
-          : "No longer monitoring for bundle opportunities",
-      })
-    },
-    [toast],
-  )
-
-  // Update config
-  const handleUpdateConfig = useCallback(() => {
-    toast({
-      title: "Configuration Updated",
-      description: "Bundle engine configuration has been updated",
-    })
-
-    // Hide settings panel after update
-    setShowSettings(false)
-  }, [config, toast])
-
-  // Create a new bundle
-  const handleCreateBundle = useCallback(() => {
-    if (!walletPublicKey) {
-      toast({
-        title: "Wallet Not Connected",
-        description: "Please connect your wallet to create a bundle",
-        variant: "destructive",
-      })
-      return
+    const bundle = {
+      id: `bundle${Date.now()}`,
+      ...newBundle,
     }
 
-    setIsLoading(true)
+    setBundles([...bundles, bundle])
+    setNewBundle({
+      name: "",
+      description: "",
+      transactions: 0,
+      status: "ready",
+      priority: false,
+    })
+    setIsAdding(false)
+  }
 
-    // Simulate bundle creation
-    setTimeout(() => {
-      const newBundle = {
-        id: `bundle-${Date.now()}`,
-        strategy: selectedStrategy,
-        status: "pending",
-        createdAt: Date.now(),
-        transactions: [],
-      }
+  const handleDeleteBundle = (id: string) => {
+    setBundles(bundles.filter((bundle) => bundle.id !== id))
+  }
 
-      setBundles((prev) => [...prev, newBundle])
-      setIsLoading(false)
+  const handleToggleStatus = (id: string) => {
+    setBundles(
+      bundles.map((bundle) =>
+        bundle.id === id
+          ? {
+              ...bundle,
+              status: bundle.status === "running" ? "ready" : "running",
+            }
+          : bundle,
+      ),
+    )
+  }
 
-      toast({
-        title: "Bundle Created",
-        description: `New ${selectedStrategy} bundle created successfully`,
-      })
-    }, 1500)
-  }, [selectedStrategy, toast, walletPublicKey])
-
-  // Cancel a bundle
-  const handleCancelBundle = useCallback(
-    (bundleId: string) => {
-      setIsLoading(true)
-
-      // Simulate cancellation
-      setTimeout(() => {
-        setBundles((prev) =>
-          prev.map((bundle) => (bundle.id === bundleId ? { ...bundle, status: "cancelled" } : bundle)),
-        )
-
-        setIsLoading(false)
-
-        toast({
-          title: "Bundle Cancelled",
-          description: "Bundle has been cancelled",
-        })
-      }, 1000)
-    },
-    [toast],
-  )
+  const handleTogglePriority = (id: string) => {
+    setBundles(
+      bundles.map((bundle) =>
+        bundle.id === id
+          ? {
+              ...bundle,
+              priority: !bundle.priority,
+            }
+          : bundle,
+      ),
+    )
+  }
 
   return (
-    <div className="grid grid-cols-1 gap-4">
-      <Card className="bg-[#151514] border-[#30302e]">
-        <CardHeader className="pb-2">
-          <div className="flex justify-between items-center">
-            <div>
-              <CardTitle className="text-xl font-syne">Bundle Engine</CardTitle>
-              <CardDescription>Manage and execute transaction bundles</CardDescription>
-            </div>
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2">
-                <div
-                  className={`h-2 w-2 rounded-full ${isEnabled ? "bg-[#76D484] animate-pulse" : "bg-[#E57676]"}`}
-                ></div>
-                <span className="text-sm text-[#707070]">{isEnabled ? "Active" : "Inactive"}</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Switch
-                  id="enableEngine"
-                  checked={isEnabled}
-                  onCheckedChange={handleToggleEngine}
-                  className="data-[state=checked]:bg-gradient-to-r from-[#00B6E7] to-[#A4D756]"
-                />
-                <Label htmlFor="enableEngine">Enable</Label>
-              </div>
+    <div className="space-y-6">
+      <Tabs defaultValue="bundles">
+        <TabsList className="mb-6">
+          <TabsTrigger value="bundles">Bundles</TabsTrigger>
+          <TabsTrigger value="history">Execution History</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="bundles">
+          <div className="bg-[#151514] border border-[#30302e] rounded-lg p-6">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-bold">Bundle Manager</h2>
               <Button
-                variant="outline"
-                size="icon"
-                className="bg-[#1d1d1c] border-[#30302e] hover:bg-[#30302e]"
-                onClick={() => setShowSettings(!showSettings)}
+                onClick={() => setIsAdding(true)}
+                className="bg-gradient-to-r from-[#00B6E7] to-[#A4D756] hover:opacity-90 text-[#0C0C0C] font-medium"
               >
-                <Settings className="h-4 w-4" />
+                <Plus className="h-4 w-4 mr-2" />
+                New Bundle
               </Button>
             </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <Tabs defaultValue="bundles">
-            <TabsList className="bg-[#1d1d1c] border border-[#30302e]">
-              <TabsTrigger value="bundles">Bundles</TabsTrigger>
-              <TabsTrigger value="transactions">Transactions</TabsTrigger>
-            </TabsList>
 
-            <TabsContent value="bundles" className="mt-4">
-              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
-                <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
-                  <div className="flex items-center space-x-2">
-                    <Label htmlFor="strategySelect">Strategy:</Label>
-                    <Select value={selectedStrategy} onValueChange={setSelectedStrategy}>
-                      <SelectTrigger className="w-40 bg-[#1d1d1c] border-[#30302e]">
-                        <SelectValue placeholder="Select strategy" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-[#1d1d1c] border-[#30302e]">
-                        <SelectItem value="bootstrap">Bootstrap</SelectItem>
-                        <SelectItem value="creation-aware">Creation Aware</SelectItem>
-                        <SelectItem value="breakout">Breakout</SelectItem>
-                        <SelectItem value="bollinger">Bollinger Bands</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button variant="outline" size="sm" className="bg-[#1d1d1c] border-[#30302e] hover:bg-[#30302e]">
-                        Strategy Info
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-80 bg-[#1d1d1c] border-[#30302e]">
-                      {selectedStrategy === "bootstrap" && (
-                        <div className="space-y-2">
-                          <h4 className="font-medium">Bootstrap Strategy</h4>
-                          <p className="text-sm text-[#707070]">
-                            Combines token creation and transaction bundling for coordinated launches.
-                          </p>
-                        </div>
-                      )}
-                      {selectedStrategy === "creation-aware" && (
-                        <div className="space-y-2">
-                          <h4 className="font-medium">Creation Aware Strategy</h4>
-                          <p className="text-sm text-[#707070]">
-                            Watches for new token creations and automatically executes buy/sell transactions.
-                          </p>
-                        </div>
-                      )}
-                      {selectedStrategy === "breakout" && (
-                        <div className="space-y-2">
-                          <h4 className="font-medium">Breakout Strategy</h4>
-                          <p className="text-sm text-[#707070]">
-                            Identifies and trades breakout patterns with momentum confirmation.
-                          </p>
-                        </div>
-                      )}
-                      {selectedStrategy === "bollinger" && (
-                        <div className="space-y-2">
-                          <h4 className="font-medium">Bollinger Bands Strategy</h4>
-                          <p className="text-sm text-[#707070]">
-                            Uses Bollinger Bands to identify overbought and oversold conditions.
-                          </p>
-                        </div>
-                      )}
-                    </PopoverContent>
-                  </Popover>
-                </div>
-
-                <Button
-                  className="bg-gradient-to-r from-[#00B6E7] to-[#A4D756] hover:opacity-90 text-[#0C0C0C] font-medium"
-                  onClick={handleCreateBundle}
-                  disabled={isLoading || !walletPublicKey}
-                >
-                  <Zap className={`mr-2 h-4 w-4 ${isLoading ? "animate-pulse" : ""}`} />
-                  Create Bundle
-                </Button>
-              </div>
-
-              {bundles.length === 0 ? (
-                <div className="p-8 text-center text-[#707070]">
-                  <Zap className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>No bundles created yet.</p>
-                  <p className="text-sm mt-2">Create a bundle to get started.</p>
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader className="bg-[#1d1d1c]">
-                      <TableRow>
-                        <TableHead>ID</TableHead>
-                        <TableHead>Strategy</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Created</TableHead>
-                        <TableHead>Transactions</TableHead>
-                        <TableHead className="text-right">Action</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {bundles.map((bundle) => (
-                        <TableRow key={bundle.id} className="border-[#30302e]">
-                          <TableCell className="font-medium">{bundle.id.substring(0, 8)}...</TableCell>
-                          <TableCell className="capitalize">{bundle.strategy}</TableCell>
-                          <TableCell>
-                            {bundle.status === "pending" && <Badge className="bg-[#22CCEE]">Pending</Badge>}
-                            {bundle.status === "submitted" && <Badge className="bg-[#76D484]">Submitted</Badge>}
-                            {bundle.status === "confirmed" && <Badge className="bg-[#76D484]">Confirmed</Badge>}
-                            {bundle.status === "failed" && <Badge className="bg-[#E57676]">Failed</Badge>}
-                            {bundle.status === "cancelled" && <Badge className="bg-[#707070]">Cancelled</Badge>}
-                          </TableCell>
-                          <TableCell>{new Date(bundle.createdAt).toLocaleTimeString()}</TableCell>
-                          <TableCell>{bundle.transactions.length}</TableCell>
-                          <TableCell className="text-right">
-                            {bundle.status === "pending" && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-8 text-[#E57676] hover:text-[#ff4d4d]"
-                                onClick={() => handleCancelBundle(bundle.id)}
-                                disabled={isLoading}
-                              >
-                                Cancel
-                              </Button>
-                            )}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              )}
-            </TabsContent>
-
-            <TabsContent value="transactions" className="mt-4">
-              {transactions.length === 0 ? (
-                <div className="p-8 text-center text-[#707070]">
-                  <RefreshCw className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>No transactions yet.</p>
-                  <p className="text-sm mt-2">Transactions will appear here when bundles are created.</p>
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader className="bg-[#1d1d1c]">
-                      <TableRow>
-                        <TableHead>ID</TableHead>
-                        <TableHead>Bundle</TableHead>
-                        <TableHead>Type</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Created</TableHead>
-                        <TableHead>Signature</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {transactions.map((tx) => (
-                        <TableRow key={tx.id} className="border-[#30302e]">
-                          <TableCell className="font-medium">{tx.id.substring(0, 8)}...</TableCell>
-                          <TableCell>{tx.bundleId.substring(0, 8)}...</TableCell>
-                          <TableCell className="capitalize">{tx.type}</TableCell>
-                          <TableCell>
-                            {tx.status === "pending" && <Badge className="bg-[#22CCEE]">Pending</Badge>}
-                            {tx.status === "confirmed" && <Badge className="bg-[#76D484]">Confirmed</Badge>}
-                            {tx.status === "failed" && <Badge className="bg-[#E57676]">Failed</Badge>}
-                          </TableCell>
-                          <TableCell>{new Date(tx.createdAt).toLocaleTimeString()}</TableCell>
-                          <TableCell>
-                            {tx.signature ? (
-                              <a
-                                href={`https://solscan.io/tx/${tx.signature}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-[#22CCEE] hover:underline"
-                              >
-                                {tx.signature.substring(0, 8)}...
-                              </a>
-                            ) : (
-                              "—"
-                            )}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              )}
-            </TabsContent>
-          </Tabs>
-
-          {/* Settings Panel */}
-          <Collapsible open={showSettings} onOpenChange={setShowSettings}>
-            <CollapsibleContent className="mt-4 p-4 rounded-lg bg-[#1d1d1c] border border-[#30302e] space-y-6">
-              <div className="flex justify-between items-center">
-                <h3 className="text-lg font-medium">Engine Settings</h3>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowSettings(false)}
-                  className="text-[#707070] hover:text-white"
-                >
-                  Hide
-                </Button>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {isAdding && (
+              <div className="mb-6 p-4 border border-[#30302e] rounded-lg bg-[#1d1d1c]">
+                <h3 className="text-lg font-medium mb-4">Create New Bundle</h3>
                 <div className="space-y-4">
-                  <h4 className="text-sm font-medium">Bundle Parameters</h4>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="bundleTtl">Bundle TTL (slots)</Label>
-                    <div className="flex items-center space-x-2">
-                      <Input
-                        id="bundleTtl"
-                        type="number"
-                        value={config.bundleTtl}
-                        onChange={(e) => setConfig({ ...config, bundleTtl: Number(e.target.value) })}
-                        className="bg-[#252523] border-[#30302e]"
-                      />
-                      <span className="text-sm text-[#707070]">slots</span>
-                    </div>
-                    <p className="text-xs text-[#707070]">Time-to-live for bundles in Solana slots</p>
-                  </div>
-
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <Label htmlFor="priorityFee">Priority Fee (lamports)</Label>
-                      <span className="text-sm text-[#707070]">{config.priorityFee}</span>
-                    </div>
-                    <Slider
-                      id="priorityFee"
-                      min={0}
-                      max={1000000}
-                      step={10000}
-                      value={[config.priorityFee]}
-                      onValueChange={(value) => setConfig({ ...config, priorityFee: value[0] })}
-                      className="[&>span]:bg-gradient-to-r [&>span]:from-[#00B6E7] [&>span]:to-[#A4D756]"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="maxRetries">Max Retries</Label>
+                  <div>
+                    <Label htmlFor="name">Bundle Name</Label>
                     <Input
-                      id="maxRetries"
-                      type="number"
-                      value={config.maxRetries}
-                      onChange={(e) => setConfig({ ...config, maxRetries: Number(e.target.value) })}
-                      className="bg-[#252523] border-[#30302e]"
+                      id="name"
+                      value={newBundle.name}
+                      onChange={(e) => setNewBundle({ ...newBundle, name: e.target.value })}
+                      className="bg-[#151514] border-[#30302e]"
                     />
                   </div>
-                </div>
-
-                <div className="space-y-4">
-                  <h4 className="text-sm font-medium">Advanced Settings</h4>
-
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <Label htmlFor="useDecoys">Use Decoy Transactions</Label>
-                      <p className="text-xs text-[#707070]">Add decoy transactions to prevent frontrunning</p>
-                    </div>
+                  <div>
+                    <Label htmlFor="description">Description</Label>
+                    <Textarea
+                      id="description"
+                      value={newBundle.description}
+                      onChange={(e) => setNewBundle({ ...newBundle, description: e.target.value })}
+                      className="bg-[#151514] border-[#30302e]"
+                    />
+                  </div>
+                  <div className="flex items-center space-x-2">
                     <Switch
-                      id="useDecoys"
-                      checked={config.useDecoys}
-                      onCheckedChange={(checked) => setConfig({ ...config, useDecoys: checked })}
-                      className="data-[state=checked]:bg-gradient-to-r from-[#00B6E7] to-[#A4D756]"
+                      id="priority"
+                      checked={newBundle.priority}
+                      onCheckedChange={(checked) => setNewBundle({ ...newBundle, priority: checked })}
                     />
+                    <Label htmlFor="priority">Priority Bundle</Label>
                   </div>
-
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <Label htmlFor="timeJitter">Time Jitter</Label>
-                      <p className="text-xs text-[#707070]">Add random time delay to transactions</p>
-                    </div>
-                    <Switch
-                      id="timeJitter"
-                      checked={config.timeJitter}
-                      onCheckedChange={(checked) => setConfig({ ...config, timeJitter: checked })}
-                      className="data-[state=checked]:bg-gradient-to-r from-[#00B6E7] to-[#A4D756]"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="rpcEndpoint">RPC Endpoint</Label>
-                    <Select
-                      value={config.rpcEndpoint}
-                      onValueChange={(value) => setConfig({ ...config, rpcEndpoint: value })}
-                    >
-                      <SelectTrigger className="bg-[#252523] border-[#30302e]">
-                        <SelectValue placeholder="Select RPC endpoint" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-[#1d1d1c] border-[#30302e]">
-                        <SelectItem value="quicknode">QuickNode</SelectItem>
-                        <SelectItem value="jito">Jito</SelectItem>
-                        <SelectItem value="helius">Helius</SelectItem>
-                      </SelectContent>
-                    </Select>
+                  <div className="flex justify-end space-x-2">
+                    <Button variant="outline" onClick={() => setIsAdding(false)}>
+                      Cancel
+                    </Button>
+                    <Button onClick={handleAddBundle}>Create Bundle</Button>
                   </div>
                 </div>
               </div>
+            )}
 
-              <div className="flex justify-between items-center pt-4">
-                <div className="p-3 rounded-lg bg-[#252523] border border-[#E57676] flex items-start space-x-2">
-                  <AlertTriangle className="h-4 w-4 text-[#E57676] mt-0.5 flex-shrink-0" />
-                  <p className="text-xs text-[#707070]">
-                    Bundle execution involves MEV risk. Use appropriate settings to minimize frontrunning.
-                  </p>
-                </div>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="text-[#707070] text-sm border-b border-[#30302e]">
+                    <th className="pb-2 text-left">Name</th>
+                    <th className="pb-2 text-left">Description</th>
+                    <th className="pb-2 text-left">Transactions</th>
+                    <th className="pb-2 text-left">Status</th>
+                    <th className="pb-2 text-left">Priority</th>
+                    <th className="pb-2 text-left">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {bundles.map((bundle) => (
+                    <tr key={bundle.id} className="border-b border-[#30302e] hover:bg-[#1d1d1c]">
+                      <td className="py-4 font-medium">{bundle.name}</td>
+                      <td className="py-4 text-[#707070]">{bundle.description}</td>
+                      <td className="py-4">{bundle.transactions}</td>
+                      <td className="py-4">
+                        <StatusBadge status={bundle.status} />
+                      </td>
+                      <td className="py-4">
+                        <Switch
+                          checked={bundle.priority}
+                          onCheckedChange={() => handleTogglePriority(bundle.id)}
+                          className="data-[state=checked]:bg-[#F9CB40]"
+                        />
+                      </td>
+                      <td className="py-4">
+                        <div className="flex space-x-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleToggleStatus(bundle.id)}
+                            className={`h-8 w-8 ${bundle.status === "running" ? "text-[#F9CB40]" : "text-[#A4D756]"}`}
+                            disabled={bundle.status === "completed"}
+                          >
+                            {bundle.status === "running" ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                            <span className="sr-only">{bundle.status === "running" ? "Pause" : "Start"}</span>
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDeleteBundle(bundle.id)}
+                            className="h-8 w-8 text-[#E57676]"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                            <span className="sr-only">Delete</span>
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </TabsContent>
 
-                <Button
-                  className="bg-gradient-to-r from-[#00B6E7] to-[#A4D756] hover:opacity-90 text-[#0C0C0C] font-medium"
-                  onClick={handleUpdateConfig}
-                  disabled={isLoading}
-                >
-                  <Zap className="mr-2 h-4 w-4" />
-                  Update Configuration
-                </Button>
-              </div>
-            </CollapsibleContent>
-          </Collapsible>
-        </CardContent>
-      </Card>
+        <TabsContent value="history">
+          <div className="bg-[#151514] border border-[#30302e] rounded-lg p-6">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-bold">Execution History</h2>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="text-[#707070] text-sm border-b border-[#30302e]">
+                    <th className="pb-2 text-left">Bundle</th>
+                    <th className="pb-2 text-left">Status</th>
+                    <th className="pb-2 text-left">Time</th>
+                    <th className="pb-2 text-left">Profit/Loss</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {history.map((item) => (
+                    <tr key={item.id} className="border-b border-[#30302e] hover:bg-[#1d1d1c]">
+                      <td className="py-4 font-medium">{item.bundleName}</td>
+                      <td className="py-4">
+                        <StatusBadge status={item.status} />
+                      </td>
+                      <td className="py-4">{formatTime(item.timestamp)}</td>
+                      <td className="py-4">
+                        <span
+                          className={
+                            item.profit.startsWith("+")
+                              ? "text-[#A4D756]"
+                              : item.profit === "0 SOL"
+                                ? "text-[#707070]"
+                                : "text-[#E57676]"
+                          }
+                        >
+                          {item.profit}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   )
+}
+
+function StatusBadge({ status }: { status: string }) {
+  let bgColor = ""
+  let textColor = ""
+  let icon = null
+
+  switch (status) {
+    case "ready":
+      bgColor = "bg-[#1d1d1c]"
+      textColor = "text-[#707070]"
+      icon = <Clock className="h-3 w-3 mr-1" />
+      break
+    case "running":
+      bgColor = "bg-[#332E1A]"
+      textColor = "text-[#F9CB40]"
+      icon = <Play className="h-3 w-3 mr-1" />
+      break
+    case "completed":
+      bgColor = "bg-[#1E3323]"
+      textColor = "text-[#A4D756]"
+      icon = <Check className="h-3 w-3 mr-1" />
+      break
+    case "success":
+      bgColor = "bg-[#1E3323]"
+      textColor = "text-[#A4D756]"
+      icon = <Check className="h-3 w-3 mr-1" />
+      break
+    case "failed":
+      bgColor = "bg-[#331A1A]"
+      textColor = "text-[#E57676]"
+      icon = <X className="h-3 w-3 mr-1" />
+      break
+  }
+
+  return (
+    <span className={`inline-flex items-center px-2 py-1 rounded-md ${bgColor} ${textColor} text-xs`}>
+      {icon}
+      <span className="capitalize">{status}</span>
+    </span>
+  )
+}
+
+function formatTime(timestamp: number): string {
+  const now = Date.now()
+  const diff = now - timestamp
+
+  if (diff < 60000) {
+    return "Just now"
+  } else if (diff < 3600000) {
+    return `${Math.floor(diff / 60000)}m ago`
+  } else if (diff < 86400000) {
+    return `${Math.floor(diff / 3600000)}h ago`
+  } else {
+    return `${Math.floor(diff / 86400000)}d ago`
+  }
 }
