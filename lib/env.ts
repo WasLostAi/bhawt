@@ -1,55 +1,83 @@
-/**
- * Environment variable utility for safely accessing environment variables
- */
-export class ENV {
-  /**
-   * Get an environment variable with type safety
-   * @param key The environment variable key
-   * @param defaultValue Default value if the environment variable is not set
-   * @returns The environment variable value or the default value
-   */
-  static get<T extends string | number | boolean>(key: string, defaultValue: T): T {
-    const value = process.env[key] || process.env[`NEXT_PUBLIC_${key}`]
+// Environment configuration with QuickNode integration
 
-    if (value === undefined) {
-      return defaultValue
+// Default environment variables
+const defaultEnv = {
+  RPC_ENDPOINT: process.env.NEXT_PUBLIC_RPC_ENDPOINT || "https://api.mainnet-beta.solana.com",
+  QUICKNODE_ENDPOINT: process.env.NEXT_PUBLIC_QUICKNODE_ENDPOINT || "",
+  // Remove Jupiter API key from client-side environment variables
+  DEFAULT_PRIORITY_FEE: process.env.NEXT_PUBLIC_DEFAULT_PRIORITY_FEE || "250000",
+  MAX_COMPUTE_UNITS: process.env.NEXT_PUBLIC_MAX_COMPUTE_UNITS || "1400000",
+  MAX_ACCOUNTS: process.env.NEXT_PUBLIC_MAX_ACCOUNTS || "64",
+  MIN_LIQUIDITY_USD: process.env.NEXT_PUBLIC_MIN_LIQUIDITY_USD || "100000",
+  MAX_PRICE_IMPACT: process.env.NEXT_PUBLIC_MAX_PRICE_IMPACT || "2.5",
+  ENABLE_JITO_BUNDLES: process.env.NEXT_PUBLIC_ENABLE_JITO_BUNDLES || "false", // Changed to false
+  ENABLE_PRIORITY_FEES: process.env.NEXT_PUBLIC_ENABLE_PRIORITY_FEES || "true",
+  ENABLE_WHALE_TRACKING: process.env.NEXT_PUBLIC_ENABLE_WHALE_TRACKING || "true",
+  ENABLE_STRATEGY_MONITOR: process.env.NEXT_PUBLIC_ENABLE_STRATEGY_MONITOR || "true",
+}
+
+// Environment variables stored in memory (for development)
+const envStore: Record<string, string> = { ...defaultEnv }
+
+// Environment class for managing environment variables
+class Environment {
+  // Get an environment variable
+  get(key: string, defaultValue = ""): string {
+    // First check browser storage for overrides
+    if (typeof window !== "undefined") {
+      const storedValue = localStorage.getItem(`env_${key}`)
+      if (storedValue) return storedValue
     }
 
-    // Type conversion based on the default value type
-    if (typeof defaultValue === "number") {
-      return Number(value) as T
-    }
-
-    if (typeof defaultValue === "boolean") {
-      return (value === "true") as T
-    }
-
-    return value as T
+    // Then check the env store
+    return envStore[key] || defaultValue
   }
 
-  /**
-   * Check if an environment variable is defined
-   * @param key The environment variable key
-   * @returns True if the environment variable is defined
-   */
-  static has(key: string): boolean {
-    return process.env[key] !== undefined || process.env[`NEXT_PUBLIC_${key}`] !== undefined
+  // Get an environment variable as a number
+  getNumber(key: string, defaultValue = 0): number {
+    const value = this.get(key, String(defaultValue))
+    const parsed = Number.parseFloat(value)
+    return isNaN(parsed) ? defaultValue : parsed
   }
 
-  /**
-   * Get all environment variables with a specific prefix
-   * @param prefix The prefix to filter environment variables
-   * @returns An object with all matching environment variables
-   */
-  static getWithPrefix(prefix: string): Record<string, string> {
-    const result: Record<string, string> = {}
+  // Set an environment variable
+  set(key: string, value: string): void {
+    envStore[key] = value
 
-    Object.keys(process.env).forEach((key) => {
-      if (key.startsWith(prefix)) {
-        result[key.replace(prefix, "")] = process.env[key] || ""
+    // Also store in browser storage for persistence
+    if (typeof window !== "undefined") {
+      localStorage.setItem(`env_${key}`, value)
+    }
+  }
+
+  // Check if a feature flag is enabled
+  isEnabled(key: string): boolean {
+    return this.get(key, "false").toLowerCase() === "true"
+  }
+
+  // Set QuickNode endpoint
+  setQuickNodeEndpoint(endpoint: string): void {
+    this.set("QUICKNODE_ENDPOINT", endpoint)
+    // If no RPC endpoint is set, use QuickNode as the default
+    if (!this.get("RPC_ENDPOINT") || this.get("RPC_ENDPOINT") === "https://api.mainnet-beta.solana.com") {
+      this.set("RPC_ENDPOINT", endpoint)
+    }
+  }
+
+  // Get all environment variables
+  getAll(): Record<string, string> {
+    return { ...envStore }
+  }
+
+  // Reset to defaults
+  reset(): void {
+    Object.keys(defaultEnv).forEach((key) => {
+      envStore[key] = defaultEnv[key]
+      if (typeof window !== "undefined") {
+        localStorage.removeItem(`env_${key}`)
       }
     })
-
-    return result
   }
 }
+
+export const ENV = new Environment()

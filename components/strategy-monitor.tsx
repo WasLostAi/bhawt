@@ -1,767 +1,683 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Input } from "@/components/ui/input"
-import { Slider } from "@/components/ui/slider"
-import { Label } from "@/components/ui/label"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
-import { RefreshCw, Plus } from "lucide-react"
+import { Switch } from "@/components/ui/switch"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Badge } from "@/components/ui/badge"
+import { Progress } from "@/components/ui/progress"
+import { Zap, AlertTriangle, CheckCircle2, XCircle, Clock, RefreshCw, Settings } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
-import { useTokenList } from "@/hooks/use-token-list"
 
-// Mock strategy data
-const mockStrategies = [
+// Mock data for strategies
+const strategies = [
   {
-    id: "strategy1",
-    name: "BONK Breakout",
-    type: "breakout",
-    targetToken: "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263",
-    targetTokenSymbol: "BONK",
-    baseToken: "So11111111111111111111111111111111111111112",
-    baseTokenSymbol: "SOL",
-    status: "active",
+    id: "breakout",
+    name: "Breakout Strategy",
+    description: "Identifies and trades breakout patterns with momentum confirmation",
+    enabled: true,
     performance: {
-      successRate: 78.5,
-      profitLoss: 1.25,
-      totalTrades: 14,
-      successfulTrades: 11,
-      failedTrades: 3,
-      roi: 12.5,
-      winLossRatio: 3.67,
+      winRate: 68,
+      profitFactor: 2.1,
+      totalTrades: 25,
+      avgProfit: 3.2,
     },
-    config: {
-      enabled: true,
-      targetToken: "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263",
-      baseToken: "So11111111111111111111111111111111111111112",
-      amount: "0.5",
-      breakoutPercentage: 5,
-      confirmationPeriod: 60000,
-      stopLoss: 3,
-      takeProfit: 10,
-      maxExecutions: 10,
-    },
+    signals: [
+      {
+        id: "signal1",
+        token: "SOL",
+        direction: "long",
+        confidence: 85,
+        timestamp: Date.now() - 300000,
+        status: "active",
+      },
+      {
+        id: "signal2",
+        token: "JTO",
+        direction: "long",
+        confidence: 72,
+        timestamp: Date.now() - 900000,
+        status: "active",
+      },
+    ],
   },
   {
-    id: "strategy2",
-    name: "WIF Bollinger",
-    type: "bollinger",
-    targetToken: "EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm",
-    targetTokenSymbol: "WIF",
-    baseToken: "So11111111111111111111111111111111111111112",
-    baseTokenSymbol: "SOL",
-    status: "paused",
+    id: "bollinger",
+    name: "Bollinger Bands Strategy",
+    description: "Uses Bollinger Bands to identify overbought and oversold conditions",
+    enabled: true,
     performance: {
-      successRate: 65.0,
-      profitLoss: 0.75,
-      totalTrades: 20,
-      successfulTrades: 13,
-      failedTrades: 7,
-      roi: 7.5,
-      winLossRatio: 1.86,
+      winRate: 62,
+      profitFactor: 1.8,
+      totalTrades: 42,
+      avgProfit: 2.5,
     },
-    config: {
-      enabled: false,
-      targetToken: "EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm",
-      baseToken: "So11111111111111111111111111111111111111112",
-      amount: "0.3",
-      period: 20,
-      standardDeviations: 2,
-      stopLoss: 5,
-      takeProfit: 15,
-      maxExecutions: 20,
+    signals: [
+      {
+        id: "signal3",
+        token: "WIF",
+        direction: "short",
+        confidence: 78,
+        timestamp: Date.now() - 600000,
+        status: "active",
+      },
+    ],
+  },
+  {
+    id: "bootstrap",
+    name: "Bootstrap Strategy",
+    description: "Combines token creation and transaction bundling for coordinated launches",
+    enabled: false,
+    performance: {
+      winRate: 75,
+      profitFactor: 2.5,
+      totalTrades: 12,
+      avgProfit: 4.8,
     },
+    signals: [],
+  },
+  {
+    id: "creation-aware",
+    name: "Creation Aware Trader",
+    description: "Watches for new token creations and automatically executes buy/sell transactions",
+    enabled: true,
+    performance: {
+      winRate: 58,
+      profitFactor: 1.6,
+      totalTrades: 36,
+      avgProfit: 2.1,
+    },
+    signals: [
+      {
+        id: "signal4",
+        token: "BONK",
+        direction: "long",
+        confidence: 65,
+        timestamp: Date.now() - 1200000,
+        status: "completed",
+      },
+    ],
+  },
+]
+
+// Mock data for trades
+const trades = [
+  {
+    id: "trade1",
+    strategy: "breakout",
+    token: "SOL",
+    entry: 148.25,
+    exit: 152.8,
+    profit: 3.07,
+    direction: "long",
+    timestamp: Date.now() - 3600000,
+    status: "completed",
+  },
+  {
+    id: "trade2",
+    strategy: "bollinger",
+    token: "WIF",
+    entry: 0.00022,
+    exit: 0.00019,
+    profit: -13.64,
+    direction: "long",
+    timestamp: Date.now() - 7200000,
+    status: "completed",
+  },
+  {
+    id: "trade3",
+    strategy: "creation-aware",
+    token: "BONK",
+    entry: 0.000011,
+    exit: 0.000012,
+    profit: 9.09,
+    direction: "long",
+    timestamp: Date.now() - 10800000,
+    status: "completed",
+  },
+  {
+    id: "trade4",
+    strategy: "breakout",
+    token: "JTO",
+    entry: 1.45,
+    exit: null,
+    profit: null,
+    direction: "long",
+    timestamp: Date.now() - 1800000,
+    status: "active",
   },
 ]
 
 export default function StrategyMonitor() {
-  const [strategies, setStrategies] = useState(mockStrategies)
-  const [activeTab, setActiveTab] = useState("active")
-  const [isLoading, setIsLoading] = useState(false)
-  const [selectedStrategy, setSelectedStrategy] = useState<any>(null)
-  const [newStrategy, setNewStrategy] = useState({
-    name: "",
-    type: "breakout",
-    targetToken: "",
-    baseToken: "So11111111111111111111111111111111111111112", // Default to SOL
-    config: {
-      amount: "0.1",
-      breakoutPercentage: 5,
-      confirmationPeriod: 60000,
-      period: 20,
-      standardDeviations: 2,
-      stopLoss: 5,
-      takeProfit: 15,
-      maxExecutions: 10,
-    },
-  })
-  const { tokens } = useTokenList({ onlyVerified: true })
   const { toast } = useToast()
+  const [activeStrategies, setActiveStrategies] = useState(strategies)
+  const [activeTrades, setActiveTrades] = useState(trades)
+  const [isLoading, setIsLoading] = useState(false)
+  const [selectedStrategy, setSelectedStrategy] = useState<string | null>(null)
 
-  // Load strategies on component mount
+  // Use refs to track initialization
+  const initialized = useRef(false)
+
+  // Initialize once with mock data
   useEffect(() => {
-    loadStrategies()
+    if (initialized.current) return
+
+    // Set mock data
+    setActiveStrategies(strategies)
+    setActiveTrades(trades)
+    initialized.current = true
+
+    // Set up polling interval
+    const interval = setInterval(() => {
+      // In a real app, this would fetch updated data
+      // For now, we'll just leave it empty to avoid state updates
+    }, 5000)
+
+    return () => clearInterval(interval)
   }, [])
 
-  // Load strategies
-  const loadStrategies = async () => {
+  // Toggle strategy enabled state
+  const handleToggleStrategy = (id: string, enabled: boolean) => {
     setIsLoading(true)
-    try {
-      // In a real implementation, this would fetch strategies from a backend
-      // For now, we'll just use the mock data
-      setTimeout(() => {
-        setStrategies(mockStrategies)
-        setIsLoading(false)
-      }, 500)
-    } catch (error) {
-      console.error("Error loading strategies:", error)
-      toast({
-        title: "Error loading strategies",
-        description: "Failed to fetch strategies. Please try again.",
-        variant: "destructive",
-      })
+
+    // Simulate API call
+    setTimeout(() => {
+      setActiveStrategies((prev) => prev.map((strategy) => (strategy.id === id ? { ...strategy, enabled } : strategy)))
+
       setIsLoading(false)
-    }
-  }
 
-  // Toggle strategy status
-  const toggleStrategyStatus = (id: string) => {
-    setStrategies(
-      strategies.map((strategy) => {
-        if (strategy.id === id) {
-          const newStatus = strategy.status === "active" ? "paused" : "active"
-
-          // Update config enabled state
-          const newConfig = {
-            ...strategy.config,
-            enabled: newStatus === "active",
-          }
-
-          return {
-            ...strategy,
-            status: newStatus,
-            config: newConfig,
-          }
-        }
-        return strategy
-      }),
-    )
-
-    toast({
-      title: "Strategy updated",
-      description: `Strategy ${strategies.find((s) => s.id === id)?.name} is now ${
-        strategies.find((s) => s.id === id)?.status === "active" ? "paused" : "active"
-      }`,
-    })
-  }
-
-  // Delete strategy
-  const deleteStrategy = (id: string) => {
-    setStrategies(strategies.filter((strategy) => strategy.id !== id))
-    toast({
-      title: "Strategy deleted",
-      description: `Strategy ${strategies.find((s) => s.id === id)?.name} has been deleted`,
-    })
-  }
-
-  // Create new strategy
-  const createStrategy = () => {
-    if (!newStrategy.name || !newStrategy.targetToken) {
       toast({
-        title: "Missing information",
-        description: "Please provide a name and select a target token",
-        variant: "destructive",
+        title: enabled ? "Strategy Enabled" : "Strategy Disabled",
+        description: `${activeStrategies.find((s) => s.id === id)?.name} has been ${enabled ? "enabled" : "disabled"}`,
       })
-      return
-    }
-
-    const newId = `strategy${Date.now()}`
-    const targetTokenInfo = tokens.find((t) => t.address === newStrategy.targetToken)
-    const baseTokenInfo = tokens.find((t) => t.address === newStrategy.baseToken) || { symbol: "SOL" }
-
-    const newStrategyObj = {
-      id: newId,
-      name: newStrategy.name,
-      type: newStrategy.type,
-      targetToken: newStrategy.targetToken,
-      targetTokenSymbol: targetTokenInfo?.symbol || "Unknown",
-      baseToken: newStrategy.baseToken,
-      baseTokenSymbol: baseTokenInfo.symbol,
-      status: "active",
-      performance: {
-        successRate: 0,
-        profitLoss: 0,
-        totalTrades: 0,
-        successfulTrades: 0,
-        failedTrades: 0,
-        roi: 0,
-        winLossRatio: 0,
-      },
-      config:
-        newStrategy.type === "breakout"
-          ? {
-              enabled: true,
-              targetToken: newStrategy.targetToken,
-              baseToken: newStrategy.baseToken,
-              amount: newStrategy.config.amount,
-              breakoutPercentage: newStrategy.config.breakoutPercentage,
-              confirmationPeriod: newStrategy.config.confirmationPeriod,
-              stopLoss: newStrategy.config.stopLoss,
-              takeProfit: newStrategy.config.takeProfit,
-              maxExecutions: newStrategy.config.maxExecutions,
-            }
-          : {
-              enabled: true,
-              targetToken: newStrategy.targetToken,
-              baseToken: newStrategy.baseToken,
-              amount: newStrategy.config.amount,
-              period: newStrategy.config.period,
-              standardDeviations: newStrategy.config.standardDeviations,
-              stopLoss: newStrategy.config.stopLoss,
-              takeProfit: newStrategy.config.takeProfit,
-              maxExecutions: newStrategy.config.maxExecutions,
-            },
-    }
-
-    setStrategies([...strategies, newStrategyObj])
-
-    // Reset form
-    setNewStrategy({
-      name: "",
-      type: "breakout",
-      targetToken: "",
-      baseToken: "So11111111111111111111111111111111111111112",
-      config: {
-        amount: "0.1",
-        breakoutPercentage: 5,
-        confirmationPeriod: 60000,
-        period: 20,
-        standardDeviations: 2,
-        stopLoss: 5,
-        takeProfit: 15,
-        maxExecutions: 10,
-      },
-    })
-
-    toast({
-      title: "Strategy created",
-      description: `Strategy ${newStrategyObj.name} has been created and is now active`,
-    })
+    }, 500)
   }
 
-  // Update strategy
-  const updateStrategy = () => {
-    if (!selectedStrategy) return
+  // Execute a signal
+  const handleExecuteSignal = (strategyId: string, signalId: string) => {
+    setIsLoading(true)
 
-    setStrategies(
-      strategies.map((strategy) => {
-        if (strategy.id === selectedStrategy.id) {
-          return selectedStrategy
+    // Simulate API call
+    setTimeout(() => {
+      // Find the strategy and signal
+      const strategy = activeStrategies.find((s) => s.id === strategyId)
+      const signal = strategy?.signals.find((s) => s.id === signalId)
+
+      if (strategy && signal) {
+        // Create a new trade
+        const newTrade = {
+          id: `trade${Date.now()}`,
+          strategy: strategyId,
+          token: signal.token,
+          entry:
+            signal.token === "SOL"
+              ? 148.25
+              : signal.token === "WIF"
+                ? 0.00022
+                : signal.token === "JTO"
+                  ? 1.45
+                  : 0.000011,
+          exit: null,
+          profit: null,
+          direction: signal.direction,
+          timestamp: Date.now(),
+          status: "active" as const,
         }
-        return strategy
-      }),
-    )
 
-    toast({
-      title: "Strategy updated",
-      description: `Strategy ${selectedStrategy.name} has been updated`,
-    })
+        // Add the new trade
+        setActiveTrades((prev) => [newTrade, ...prev])
 
-    setSelectedStrategy(null)
+        // Update the signal status
+        setActiveStrategies((prev) =>
+          prev.map((s) =>
+            s.id === strategyId
+              ? {
+                  ...s,
+                  signals: s.signals.map((sig) => (sig.id === signalId ? { ...sig, status: "executing" } : sig)),
+                }
+              : s,
+          ),
+        )
+
+        setIsLoading(false)
+
+        toast({
+          title: "Signal Executed",
+          description: `${signal.token} ${signal.direction} signal has been executed`,
+        })
+      }
+    }, 800)
   }
 
-  // Duplicate strategy
-  const duplicateStrategy = (strategy: any) => {
-    const newStrategy = {
-      ...strategy,
-      id: `strategy${Date.now()}`,
-      name: `${strategy.name} (Copy)`,
-      status: "paused",
-      config: {
-        ...strategy.config,
-        enabled: false,
-      },
-    }
+  // Close a trade
+  const handleCloseTrade = (tradeId: string) => {
+    setIsLoading(true)
 
-    setStrategies([...strategies, newStrategy])
+    // Simulate API call
+    setTimeout(() => {
+      setActiveTrades((prev) =>
+        prev.map((trade) => {
+          if (trade.id === tradeId) {
+            const exitPrice = trade.entry * (1 + (Math.random() * 0.1 - 0.05))
+            const profitPercent =
+              ((exitPrice - trade.entry) / trade.entry) * 100 * (trade.direction === "long" ? 1 : -1)
 
-    toast({
-      title: "Strategy duplicated",
-      description: `Strategy ${strategy.name} has been duplicated`,
-    })
+            return {
+              ...trade,
+              exit: exitPrice,
+              profit: profitPercent,
+              status: "completed",
+            }
+          }
+          return trade
+        }),
+      )
+
+      setIsLoading(false)
+
+      toast({
+        title: "Trade Closed",
+        description: "The trade has been closed",
+      })
+    }, 800)
   }
-
-  // Filter strategies based on active tab
-  const filteredStrategies = strategies.filter((strategy) => {
-    if (activeTab === "active") return strategy.status === "active"
-    if (activeTab === "paused") return strategy.status === "paused"
-    return true // "all" tab
-  })
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold">Strategy Monitor</h2>
-        <div className="flex space-x-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={loadStrategies}
-            disabled={isLoading}
-            className="bg-[#1d1d1c] border-[#30302e] hover:bg-[#30302e]"
-          >
-            <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
-            Refresh
-          </Button>
-
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button className="bg-gradient-to-r from-[#00B6E7] to-[#A4D756] hover:opacity-90 text-[#0C0C0C] font-medium">
-                <Plus className="h-4 w-4 mr-2" />
-                New Strategy
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="bg-[#151514] border-[#30302e] text-white">
-              <DialogHeader>
-                <DialogTitle>Create New Strategy</DialogTitle>
-                <DialogDescription className="text-[#707070]">
-                  Configure your automated trading strategy
-                </DialogDescription>
-              </DialogHeader>
-
-              <div className="space-y-4 py-4">
-                <div className="grid grid-cols-1 gap-4">
-                  <div>
-                    <Label htmlFor="name">Strategy Name</Label>
-                    <Input
-                      id="name"
-                      value={newStrategy.name}
-                      onChange={(e) => setNewStrategy({ ...newStrategy, name: e.target.value })}
-                      className="bg-[#1d1d1c] border-[#30302e]"
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="type">Strategy Type</Label>
-                    <Select
-                      value={newStrategy.type}
-                      onValueChange={(value) => setNewStrategy({ ...newStrategy, type: value })}
-                    >
-                      <SelectTrigger id="type" className="bg-[#1d1d1c] border-[#30302e]">
-                        <SelectValue placeholder="Select strategy type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="breakout">Breakout</SelectItem>
-                        <SelectItem value="bollinger">Bollinger Bands</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="targetToken">Target Token</Label>
-                    <Select
-                      value={newStrategy.targetToken}
-                      onValueChange={(value) => setNewStrategy({ ...newStrategy, targetToken: value })}
-                    >
-                      <SelectTrigger id="targetToken" className="bg-[#1d1d1c] border-[#30302e]">
-                        <SelectValue placeholder="Select target token" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {tokens.map((token) => (
-                          <SelectItem key={token.address} value={token.address}>
-                            {token.symbol} - {token.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="baseToken">Base Token</Label>
-                    <Select
-                      value={newStrategy.baseToken}
-                      onValueChange={(value) => setNewStrategy({ ...newStrategy, baseToken: value })}
-                    >
-                      <SelectTrigger id="baseToken" className="bg-[#1d1d1c] border-[#30302e]">
-                        <SelectValue placeholder="Select base token" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="So11111111111111111111111111111111111111112">SOL</SelectItem>
-                        <SelectItem value="EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v">USDC</SelectItem>
-                        <SelectItem value="Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB">USDT</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="amount">
-                      Amount (
-                      {newStrategy.baseToken === "So11111111111111111111111111111111111111112"
-                        ? "SOL"
-                        : newStrategy.baseToken === "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
-                          ? "USDC"
-                          : "USDT"}
-                      )
-                    </Label>
-                    <Input
-                      id="amount"
-                      type="number"
-                      value={newStrategy.config.amount}
-                      onChange={(e) =>
-                        setNewStrategy({
-                          ...newStrategy,
-                          config: { ...newStrategy.config, amount: e.target.value },
-                        })
-                      }
-                      className="bg-[#1d1d1c] border-[#30302e]"
-                    />
-                  </div>
-
-                  {newStrategy.type === "breakout" ? (
-                    <>
-                      <div>
-                        <Label htmlFor="breakoutPercentage">
-                          Breakout Percentage: {newStrategy.config.breakoutPercentage}%
-                        </Label>
-                        <Slider
-                          id="breakoutPercentage"
-                          min={1}
-                          max={20}
-                          step={0.5}
-                          value={[newStrategy.config.breakoutPercentage]}
-                          onValueChange={(value) =>
-                            setNewStrategy({
-                              ...newStrategy,
-                              config: { ...newStrategy.config, breakoutPercentage: value[0] },
-                            })
-                          }
-                          className="mt-2"
-                        />
-                      </div>
-
-                      <div>
-                        <Label htmlFor="confirmationPeriod">
-                          Confirmation Period (ms): {newStrategy.config.confirmationPeriod}
-                        </Label>
-                        <Slider
-                          id="confirmationPeriod"
-                          min={10000}
-                          max={300000}
-                          step={10000}
-                          value={[newStrategy.config.confirmationPeriod]}
-                          onValueChange={(value) =>
-                            setNewStrategy({
-                              ...newStrategy,
-                              config: { ...newStrategy.config, confirmationPeriod: value[0] },
-                            })
-                          }
-                          className="mt-2"
-                        />
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <div>
-                        <Label htmlFor="period">Period: {newStrategy.config.period}</Label>
-                        <Slider
-                          id="period"
-                          min={5}
-                          max={50}
-                          step={1}
-                          value={[newStrategy.config.period]}
-                          onValueChange={(value) =>
-                            setNewStrategy({
-                              ...newStrategy,
-                              config: { ...newStrategy.config, period: value[0] },
-                            })
-                          }
-                          className="mt-2"
-                        />
-                      </div>
-
-                      <div>
-                        <Label htmlFor="standardDeviations">
-                          Standard Deviations: {newStrategy.config.standardDeviations}
-                        </Label>
-                        <Slider
-                          id="standardDeviations"
-                          min={1}
-                          max={4}
-                          step={0.1}
-                          value={[newStrategy.config.standardDeviations]}
-                          onValueChange={(value) =>
-                            setNewStrategy({
-                              ...newStrategy,
-                              config: { ...newStrategy.config, standardDeviations: value[0] },
-                            })
-                          }
-                          className="mt-2"
-                        />
-                      </div>
-                    </>
-                  )}
-
-                  <div>
-                    <Label htmlFor="stopLoss">Stop Loss: {newStrategy.config.stopLoss}%</Label>
-                    <Slider
-                      id="stopLoss"
-                      min={1}
-                      max={20}
-                      step={0.5}
-                      value={[newStrategy.config.stopLoss]}
-                      onValueChange={(value) =>
-                        setNewStrategy({
-                          ...newStrategy,
-                          config: { ...newStrategy.config, stopLoss: value[0] },
-                        })
-                      }
-                      className="mt-2"
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="takeProfit">Take Profit: {newStrategy.config.takeProfit}%</Label>
-                    <Slider
-                      id="takeProfit"
-                      min={1}
-                      max={50}
-                      step={1}
-                      value={[newStrategy.config.takeProfit]}
-                      onValueChange={(value) =>
-                        setNewStrategy({
-                          ...newStrategy,
-                          config: { ...newStrategy.config, takeProfit: value[0] },
-                        })
-                      }
-                      className="mt-2"
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="maxExecutions">Max Executions: {newStrategy.config.maxExecutions}</Label>
-                    <Slider
-                      id="maxExecutions"
-                      min={1}
-                      max={50}
-                      step={1}
-                      value={[newStrategy.config.maxExecutions]}
-                      onValueChange={(value) =>
-                        setNewStrategy({
-                          ...newStrategy,
-                          config: { ...newStrategy.config, maxExecutions: value[0] },
-                        })
-                      }
-                      className="mt-2"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <DialogFooter>
-                <Button
-                  variant="outline"
-                  onClick={() =>
-                    setNewStrategy({
-                      name: "",
-                      type: "breakout",
-                      targetToken: "",
-                      baseToken: "So11111111111111111111111111111111111111112",
-                      config: {
-                        amount: "0.1",
-                        breakoutPercentage: 5,
-                        confirmationPeriod: 60000,
-                        period: 20,
-                        standardDeviations: 2,
-                        stopLoss: 5,
-                        takeProfit: 15,
-                        maxExecutions: 10,
-                      },
-                    })
-                  }
-                >
-                  Reset
-                </Button>
-                <Button onClick={createStrategy}>Create Strategy</Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        </div>
-      </div>
-
-      <div className="flex space-x-2 mb-4">
-        <Button
-          variant={activeTab === "all" ? "default" : "outline"}
-          size="sm"
-          onClick={() => setActiveTab("all")}
-          className={activeTab === "all" ? "" : "bg-[#1d1d1c] border-[#30302e] hover:bg-[#30302e]"}
-        >
-          All
-        </Button>
-        <Button
-          variant={activeTab === "active" ? "default" : "outline"}
-          size="sm"
-          onClick={() => setActiveTab("active")}
-          className={activeTab === "active" ? "" : "bg-[#1d1d1c] border-[#30302e] hover:bg-[#30302e]"}
-        >
-          Active
-        </Button>
-        <Button
-          variant={activeTab === "paused" ? "default" : "outline"}
-          size="sm"
-          onClick={() => setActiveTab("paused")}
-          className={activeTab === "paused" ? "" : "bg-[#1d1d1c] border-[#30302e] hover:bg-[#30302e]"}
-        >
-          Paused
-        </Button>
-      </div>
-
-      <div className="space-y-4">
-        {filteredStrategies.length > 0 ? (
-          filteredStrategies.map((strategy) => (
-            <div key={strategy.id} className="bg-[#151514] border border-[#30302e] rounded-lg p-4">
-              <div className="flex justify-between items-start">
-                <div>
-                  <h3 className="text-lg font-medium">{strategy.name}</h3>
-                  <p className="text-sm text-[#707070]">
-                    {strategy.type === "breakout" ? "Breakout Strategy" : "Bollinger Bands Strategy"} •{" "}
-                    {strategy.targetTokenSymbol}/{strategy.baseTokenSymbol}
-                  </p>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <span
-                    className={`px-2 py-1 text-xs rounded-full ${
-                      strategy.status === "active" ? "bg-[#1E3323] text-[#A4D756]" : "bg-[#1d1d1c] text-[#707070]"
-                    }`}
-                  >
-                    {strategy.status === "active" ? "Active" : "Paused"}
-                  </span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => toggleStrategyStatus(strategy.id)}
-                    className="bg-[#1d1d1c] border-[#30302e] hover:bg-[#30302e]"
-                  >
-                    {strategy.status === "active" ? "Pause" : "Activate"}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => duplicateStrategy(strategy)}
-                    className="bg-[#1d1d1c] border-[#30302e] hover:bg-[#30302e]"
-                  >
-                    Duplicate
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => deleteStrategy(strategy.id)}
-                    className="bg-[#1d1d1c] border-[#30302e] hover:bg-[#30302e] text-[#E57676]"
-                  >
-                    Delete
-                  </Button>
-                </div>
-              </div>
-
-              <div className="mt-4 grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="bg-[#1d1d1c] p-3 rounded">
-                  <p className="text-xs text-[#707070]">Success Rate</p>
-                  <p className="text-lg font-medium">{strategy.performance.successRate.toFixed(1)}%</p>
-                </div>
-                <div className="bg-[#1d1d1c] p-3 rounded">
-                  <p className="text-xs text-[#707070]">Profit/Loss</p>
-                  <p
-                    className={`text-lg font-medium ${strategy.performance.profitLoss >= 0 ? "text-[#A4D756]" : "text-[#E57676]"}`}
-                  >
-                    {strategy.performance.profitLoss >= 0 ? "+" : ""}
-                    {strategy.performance.profitLoss.toFixed(2)} {strategy.baseTokenSymbol}
-                  </p>
-                </div>
-                <div className="bg-[#1d1d1c] p-3 rounded">
-                  <p className="text-xs text-[#707070]">Total Trades</p>
-                  <p className="text-lg font-medium">{strategy.performance.totalTrades}</p>
-                </div>
-                <div className="bg-[#1d1d1c] p-3 rounded">
-                  <p className="text-xs text-[#707070]">ROI</p>
-                  <p
-                    className={`text-lg font-medium ${strategy.performance.roi >= 0 ? "text-[#A4D756]" : "text-[#E57676]"}`}
-                  >
-                    {strategy.performance.roi >= 0 ? "+" : ""}
-                    {strategy.performance.roi.toFixed(1)}%
-                  </p>
-                </div>
-              </div>
-
-              <div className="mt-4">
-                <h4 className="text-sm font-medium mb-2">Configuration</h4>
-                <div className="bg-[#1d1d1c] p-3 rounded grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <p className="text-xs text-[#707070]">Amount</p>
-                    <p className="text-sm">
-                      {strategy.config.amount} {strategy.baseTokenSymbol}
-                    </p>
-                  </div>
-                  {strategy.type === "breakout" ? (
-                    <>
-                      <div>
-                        <p className="text-xs text-[#707070]">Breakout Percentage</p>
-                        <p className="text-sm">{strategy.config.breakoutPercentage}%</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-[#707070]">Confirmation Period</p>
-                        <p className="text-sm">{strategy.config.confirmationPeriod / 1000}s</p>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <div>
-                        <p className="text-xs text-[#707070]">Period</p>
-                        <p className="text-sm">{strategy.config.period}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-[#707070]">Standard Deviations</p>
-                        <p className="text-sm">{strategy.config.standardDeviations}</p>
-                      </div>
-                    </>
-                  )}
-                  <div>
-                    <p className="text-xs text-[#707070]">Stop Loss</p>
-                    <p className="text-sm">{strategy.config.stopLoss}%</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-[#707070]">Take Profit</p>
-                    <p className="text-sm">{strategy.config.takeProfit}%</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-[#707070]">Max Executions</p>
-                    <p className="text-sm">{strategy.config.maxExecutions}</p>
-                  </div>
-                </div>
-              </div>
+    <div className="grid grid-cols-1 gap-4">
+      <Card className="bg-[#151514] border-[#30302e]">
+        <CardHeader className="pb-2">
+          <div className="flex justify-between items-center">
+            <div>
+              <CardTitle className="text-xl font-syne">Strategy Monitor</CardTitle>
+              <CardDescription>Monitor and manage trading strategies</CardDescription>
             </div>
-          ))
-        ) : (
-          <div className="bg-[#151514] border border-[#30302e] rounded-lg p-8 text-center">
-            <p className="text-[#707070] mb-4">No strategies found</p>
-            <Dialog>
-              <DialogTrigger asChild>
-                <Button>Create Your First Strategy</Button>
-              </DialogTrigger>
-              <DialogContent className="bg-[#151514] border-[#30302e] text-white">
-                {/* Strategy creation form would go here */}
-              </DialogContent>
-            </Dialog>
+            <div className="flex items-center space-x-2">
+              <Button
+                variant="outline"
+                className="bg-[#1d1d1c] border-[#30302e]"
+                onClick={() => {
+                  setIsLoading(true)
+                  setTimeout(() => {
+                    setIsLoading(false)
+                    toast({
+                      title: "Strategies Refreshed",
+                      description: "All strategies have been refreshed",
+                    })
+                  }, 800)
+                }}
+                disabled={isLoading}
+              >
+                <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
+                Refresh
+              </Button>
+              <Button className="bg-gradient-to-r from-[#00B6E7] to-[#A4D756] hover:opacity-90 text-[#0C0C0C] font-medium">
+                <Settings className="mr-2 h-4 w-4" />
+                Configure
+              </Button>
+            </div>
           </div>
-        )}
-      </div>
+        </CardHeader>
+        <CardContent>
+          <Tabs defaultValue="strategies">
+            <TabsList className="bg-[#1d1d1c] border border-[#30302e]">
+              <TabsTrigger value="strategies">Active Strategies</TabsTrigger>
+              <TabsTrigger value="signals">Trading Signals</TabsTrigger>
+              <TabsTrigger value="trades">Recent Trades</TabsTrigger>
+              <TabsTrigger value="performance">Performance</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="strategies" className="mt-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {activeStrategies.map((strategy) => (
+                  <Card key={strategy.id} className="bg-[#1d1d1c] border-[#30302e]">
+                    <CardHeader className="pb-2">
+                      <div className="flex justify-between items-center">
+                        <CardTitle className="text-lg font-syne">{strategy.name}</CardTitle>
+                        <Switch
+                          checked={strategy.enabled}
+                          onCheckedChange={(checked) => handleToggleStrategy(strategy.id, checked)}
+                          className="data-[state=checked]:bg-gradient-to-r from-[#00B6E7] to-[#A4D756]"
+                          disabled={isLoading}
+                        />
+                      </div>
+                      <CardDescription>{strategy.description}</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-2 gap-4 mb-4">
+                        <div>
+                          <p className="text-xs text-[#707070]">Win Rate</p>
+                          <div className="flex items-center">
+                            <p className="text-lg font-medium">{strategy.performance.winRate}%</p>
+                            <Progress
+                              value={strategy.performance.winRate}
+                              max={100}
+                              className="h-2 ml-2 flex-1 bg-[#30302e] [&>div]:bg-gradient-to-r [&>div]:from-[#00B6E7] [&>div]:to-[#A4D756]"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <p className="text-xs text-[#707070]">Profit Factor</p>
+                          <p className="text-lg font-medium">{strategy.performance.profitFactor.toFixed(1)}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-[#707070]">Total Trades</p>
+                          <p className="text-lg font-medium">{strategy.performance.totalTrades}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-[#707070]">Avg. Profit</p>
+                          <p className="text-lg font-medium">{strategy.performance.avgProfit.toFixed(1)}%</p>
+                        </div>
+                      </div>
+
+                      <div className="flex justify-between items-center">
+                        <div className="flex items-center">
+                          <div
+                            className={`h-2 w-2 rounded-full ${strategy.enabled ? "bg-[#76D484] animate-pulse" : "bg-[#E57676]"}`}
+                          ></div>
+                          <span className="text-sm ml-2">{strategy.enabled ? "Active" : "Inactive"}</span>
+                        </div>
+                        <div className="text-sm text-[#707070]">{strategy.signals.length} active signals</div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </TabsContent>
+
+            <TabsContent value="signals" className="mt-4">
+              {activeStrategies.flatMap((s) => s.signals).length === 0 ? (
+                <div className="p-8 text-center text-[#707070]">
+                  <AlertTriangle className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>No active signals at the moment.</p>
+                  <p className="text-sm mt-2">Signals will appear here when strategies generate them.</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader className="bg-[#1d1d1c]">
+                      <TableRow>
+                        <TableHead>Strategy</TableHead>
+                        <TableHead>Token</TableHead>
+                        <TableHead>Direction</TableHead>
+                        <TableHead>Confidence</TableHead>
+                        <TableHead>Time</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead className="text-right">Action</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {activeStrategies.flatMap((strategy) =>
+                        strategy.signals.map((signal) => (
+                          <TableRow key={signal.id} className="border-[#30302e]">
+                            <TableCell>{strategy.name}</TableCell>
+                            <TableCell className="font-medium">{signal.token}</TableCell>
+                            <TableCell>
+                              <Badge
+                                className={
+                                  signal.direction === "long"
+                                    ? "bg-[#76D484] text-[#0C0C0C]"
+                                    : "bg-[#E57676] text-[#0C0C0C]"
+                                }
+                              >
+                                {signal.direction}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center">
+                                <span className="mr-2">{signal.confidence}%</span>
+                                <Progress
+                                  value={signal.confidence}
+                                  max={100}
+                                  className="h-2 w-16 bg-[#30302e] [&>div]:bg-gradient-to-r [&>div]:from-[#00B6E7] [&>div]:to-[#A4D756]"
+                                />
+                              </div>
+                            </TableCell>
+                            <TableCell>{new Date(signal.timestamp).toLocaleTimeString()}</TableCell>
+                            <TableCell>
+                              {signal.status === "active" && (
+                                <Badge className="bg-[#22CCEE] text-[#0C0C0C]">Active</Badge>
+                              )}
+                              {signal.status === "executing" && (
+                                <Badge className="bg-[#22CCEE] text-[#0C0C0C] animate-pulse">Executing</Badge>
+                              )}
+                              {signal.status === "completed" && (
+                                <Badge className="bg-[#76D484] text-[#0C0C0C]">Completed</Badge>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {signal.status === "active" && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 text-[#22CCEE] hover:text-[#00B6E7]"
+                                  onClick={() => handleExecuteSignal(strategy.id, signal.id)}
+                                  disabled={isLoading}
+                                >
+                                  <Zap className="mr-2 h-4 w-4" />
+                                  Execute
+                                </Button>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        )),
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </TabsContent>
+
+            <TabsContent value="trades" className="mt-4">
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader className="bg-[#1d1d1c]">
+                    <TableRow>
+                      <TableHead>Strategy</TableHead>
+                      <TableHead>Token</TableHead>
+                      <TableHead>Direction</TableHead>
+                      <TableHead>Entry</TableHead>
+                      <TableHead>Exit</TableHead>
+                      <TableHead>Profit</TableHead>
+                      <TableHead>Time</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Action</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {activeTrades.map((trade) => (
+                      <TableRow key={trade.id} className="border-[#30302e]">
+                        <TableCell>
+                          {activeStrategies.find((s) => s.id === trade.strategy)?.name || trade.strategy}
+                        </TableCell>
+                        <TableCell className="font-medium">{trade.token}</TableCell>
+                        <TableCell>
+                          <Badge
+                            className={
+                              trade.direction === "long" ? "bg-[#76D484] text-[#0C0C0C]" : "bg-[#E57676] text-[#0C0C0C]"
+                            }
+                          >
+                            {trade.direction}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{trade.entry}</TableCell>
+                        <TableCell>{trade.exit || "—"}</TableCell>
+                        <TableCell>
+                          {trade.profit !== null ? (
+                            <span className={trade.profit >= 0 ? "text-[#76D484]" : "text-[#E57676]"}>
+                              {trade.profit >= 0 ? "+" : ""}
+                              {trade.profit.toFixed(2)}%
+                            </span>
+                          ) : (
+                            "—"
+                          )}
+                        </TableCell>
+                        <TableCell>{new Date(trade.timestamp).toLocaleTimeString()}</TableCell>
+                        <TableCell>
+                          {trade.status === "active" && (
+                            <Badge className="bg-[#22CCEE] text-[#0C0C0C]">
+                              <Clock className="h-3 w-3 mr-1" />
+                              Active
+                            </Badge>
+                          )}
+                          {trade.status === "completed" && trade.profit !== null && trade.profit >= 0 && (
+                            <Badge className="bg-[#76D484] text-[#0C0C0C]">
+                              <CheckCircle2 className="h-3 w-3 mr-1" />
+                              Profit
+                            </Badge>
+                          )}
+                          {trade.status === "completed" && trade.profit !== null && trade.profit < 0 && (
+                            <Badge className="bg-[#E57676] text-[#0C0C0C]">
+                              <XCircle className="h-3 w-3 mr-1" />
+                              Loss
+                            </Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {trade.status === "active" && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 text-[#E57676] hover:text-[#ff4d4d]"
+                              onClick={() => handleCloseTrade(trade.id)}
+                              disabled={isLoading}
+                            >
+                              Close
+                            </Button>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="performance" className="mt-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Card className="bg-[#1d1d1c] border-[#30302e]">
+                  <CardHeader>
+                    <CardTitle className="text-lg font-syne">Strategy Performance</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {activeStrategies.map((strategy) => (
+                        <div key={strategy.id} className="flex items-center">
+                          <div className="w-1/3">
+                            <p className="text-sm">{strategy.name}</p>
+                          </div>
+                          <div className="w-1/3">
+                            <Progress
+                              value={strategy.performance.winRate}
+                              max={100}
+                              className="h-2 bg-[#30302e] [&>div]:bg-gradient-to-r [&>div]:from-[#00B6E7] [&>div]:to-[#A4D756]"
+                            />
+                          </div>
+                          <div className="w-1/3 pl-4">
+                            <p className="text-sm">{strategy.performance.winRate}% win rate</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="bg-[#1d1d1c] border-[#30302e]">
+                  <CardHeader>
+                    <CardTitle className="text-lg font-syne">Token Performance</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {["SOL", "BONK", "WIF", "JTO"].map((token) => {
+                        const tokenTrades = activeTrades.filter((t) => t.token === token && t.profit !== null)
+                        const avgProfit =
+                          tokenTrades.length > 0
+                            ? tokenTrades.reduce((sum, t) => sum + (t.profit || 0), 0) / tokenTrades.length
+                            : 0
+
+                        return (
+                          <div key={token} className="flex items-center">
+                            <div className="w-1/3">
+                              <p className="text-sm">{token}</p>
+                            </div>
+                            <div className="w-1/3">
+                              <Progress
+                                value={50 + avgProfit}
+                                max={100}
+                                className="h-2 bg-[#30302e] [&>div]:bg-gradient-to-r [&>div]:from-[#00B6E7] [&>div]:to-[#A4D756]"
+                              />
+                            </div>
+                            <div className="w-1/3 pl-4">
+                              <p className="text-sm">
+                                <span className={avgProfit >= 0 ? "text-[#76D484]" : "text-[#E57676]"}>
+                                  {avgProfit >= 0 ? "+" : ""}
+                                  {avgProfit.toFixed(2)}%
+                                </span>
+                              </p>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="bg-[#1d1d1c] border-[#30302e] md:col-span-2">
+                  <CardHeader>
+                    <CardTitle className="text-lg font-syne">Overall Statistics</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div>
+                        <p className="text-sm text-[#707070]">Total Trades</p>
+                        <p className="text-2xl font-syne">
+                          {activeStrategies.reduce((sum, s) => sum + s.performance.totalTrades, 0)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-[#707070]">Win Rate</p>
+                        <p className="text-2xl font-syne">
+                          {Math.round(
+                            activeStrategies.reduce(
+                              (sum, s) => sum + s.performance.winRate * s.performance.totalTrades,
+                              0,
+                            ) / activeStrategies.reduce((sum, s) => sum + s.performance.totalTrades, 0),
+                          )}
+                          %
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-[#707070]">Profit Factor</p>
+                        <p className="text-2xl font-syne">
+                          {(
+                            activeStrategies.reduce(
+                              (sum, s) => sum + s.performance.profitFactor * s.performance.totalTrades,
+                              0,
+                            ) / activeStrategies.reduce((sum, s) => sum + s.performance.totalTrades, 0)
+                          ).toFixed(1)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-[#707070]">Avg. Profit</p>
+                        <p className="text-2xl font-syne">
+                          {(
+                            activeStrategies.reduce(
+                              (sum, s) => sum + s.performance.avgProfit * s.performance.totalTrades,
+                              0,
+                            ) / activeStrategies.reduce((sum, s) => sum + s.performance.totalTrades, 0)
+                          ).toFixed(1)}
+                          %
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </TabsContent>
+          </Tabs>
+        </CardContent>
+      </Card>
     </div>
   )
 }

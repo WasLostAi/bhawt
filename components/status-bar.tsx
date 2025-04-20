@@ -1,77 +1,62 @@
-"use client"
+import { Card, CardContent } from "@/components/ui/card"
+import { CircleOff, Zap, CheckCircle2, Wallet } from "lucide-react"
 
-import type React from "react"
+interface StatusBarProps {
+  activeTargets: number
+  pendingTxs: number
+  successfulSnipes: number
+}
 
-import { useEffect, useState } from "react"
-import { useAppStore } from "@/lib/store"
-import { Zap, TrendingUp, AlertTriangle, Clock } from "lucide-react"
-
-export default function StatusBar() {
-  const { metrics } = useAppStore()
-  const [uptime, setUptime] = useState("00:00:00")
-
-  // Calculate uptime
-  useEffect(() => {
-    const startTime = Date.now()
-
-    const updateUptime = () => {
-      const diff = Date.now() - startTime
-      const hours = Math.floor(diff / 3600000)
-        .toString()
-        .padStart(2, "0")
-      const minutes = Math.floor((diff % 3600000) / 60000)
-        .toString()
-        .padStart(2, "0")
-      const seconds = Math.floor((diff % 60000) / 1000)
-        .toString()
-        .padStart(2, "0")
-      setUptime(`${hours}:${minutes}:${seconds}`)
-    }
-
-    const interval = setInterval(updateUptime, 1000)
-    return () => clearInterval(interval)
-  }, [])
-
+export default function StatusBar({ activeTargets, pendingTxs, successfulSnipes }: StatusBarProps) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-      <StatusCard
-        title="Active Targets"
-        value={metrics.activeTargets.toString()}
-        icon={<Zap className="h-5 w-5 text-[#22CCEE]" />}
-      />
-      <StatusCard
-        title="Pending Transactions"
-        value={metrics.pendingTxs.toString()}
-        icon={<Clock className="h-5 w-5 text-[#F9CB40]" />}
-      />
-      <StatusCard
-        title="Successful Snipes"
-        value={metrics.successfulSnipes.toString()}
-        icon={<TrendingUp className="h-5 w-5 text-[#A4D756]" />}
-      />
-      <StatusCard
-        title="Failed Snipes"
-        value={metrics.failedSnipes.toString()}
-        icon={<AlertTriangle className="h-5 w-5 text-[#E57676]" />}
-      />
-    </div>
-  )
-}
+      <Card className="bg-[#151514] border-[#30302e]">
+        <CardContent className="p-4 flex items-center justify-between">
+          <div>
+            <p className="text-sm text-[#707070]">Active Targets</p>
+            <p className="text-2xl font-bold font-syne">{activeTargets}</p>
+          </div>
+          <div className="h-10 w-10 rounded-full bg-gradient-to-br from-[#22CCEE] to-[#2ED3B7] flex items-center justify-center">
+            <CircleOff className="h-5 w-5 text-[#0C0C0C]" />
+          </div>
+        </CardContent>
+      </Card>
 
-interface StatusCardProps {
-  title: string
-  value: string
-  icon: React.ReactNode
-}
+      <Card className="bg-[#151514] border-[#30302e]">
+        <CardContent className="p-4 flex items-center justify-between">
+          <div>
+            <p className="text-sm text-[#707070]">Pending Transactions</p>
+            <p className="text-2xl font-bold font-syne">{pendingTxs}</p>
+          </div>
+          <div className="h-10 w-10 rounded-full bg-gradient-to-br from-[#00B6E7] to-[#A4D756] flex items-center justify-center">
+            <Zap className="h-5 w-5 text-[#0C0C0C]" />
+          </div>
+        </CardContent>
+      </Card>
 
-function StatusCard({ title, value, icon }: StatusCardProps) {
-  return (
-    <div className="bg-[#151514] border border-[#30302e] rounded-lg p-4 flex items-center">
-      <div className="mr-4 bg-[#1d1d1c] p-2 rounded-md">{icon}</div>
-      <div>
-        <p className="text-sm text-[#707070]">{title}</p>
-        <p className="text-xl font-bold">{value}</p>
-      </div>
+      <Card className="bg-[#151514] border-[#30302e]">
+        <CardContent className="p-4 flex items-center justify-between">
+          <div>
+            <p className="text-sm text-[#707070]">Successful Snipes</p>
+            <p className="text-2xl font-bold font-syne">{successfulSnipes}</p>
+          </div>
+          <div className="h-10 w-10 rounded-full bg-gradient-to-br from-[#2ED3B7] to-[#C8F284] flex items-center justify-center">
+            <CheckCircle2 className="h-5 w-5 text-[#0C0C0C]" />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="bg-[#151514] border-[#30302e]">
+        <CardContent className="p-4 flex items-center justify-between">
+          <div>
+            <p className="text-sm text-[#707070]">Wallet Balance</p>
+            <p className="text-2xl font-bold font-syne">12.45 SOL</p>
+          </div>
+          <div className="h-10 w-10 rounded-full bg-[#30302e] flex items-center justify-center">
+            <Wallet className="h-5 w-5 text-white" />
+          </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }

@@ -1,954 +1,538 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  Button,
-  Input,
-  Textarea,
-  Switch,
-  Label,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-  StatusBadge,
-} from "@/components/ui"
-import {
-  RefreshCw,
-  Plus,
-  Trash2,
-  Play,
-  Pause,
-  Copy,
-  ExternalLink,
-  AlertTriangle,
-  ChevronDown,
-  ChevronUp,
-} from "lucide-react"
+import { useState, useEffect, useCallback, useRef } from "react"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Switch } from "@/components/ui/switch"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Badge } from "@/components/ui/badge"
+import { Zap, AlertTriangle, RefreshCw, Settings } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
-import { jitoService } from "@/services/jito-service"
+import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Slider } from "@/components/ui/slider"
 import { useJupiterContext } from "@/contexts/jupiter-context"
 
-// Mock bundle data
-const mockBundles = [
-  {
-    id: "bundle1",
-    name: "BONK Sniper Bundle",
-    description: "Snipe BONK token with priority",
-    transactions: [
-      {
-        id: "tx1",
-        type: "swap",
-        description: "Swap SOL for BONK",
-        data: {
-          inputToken: "SOL",
-          outputToken: "BONK",
-          amount: "0.5",
-          slippage: "1%",
-        },
-      },
-      {
-        id: "tx2",
-        type: "swap",
-        description: "Swap SOL for USDC",
-        data: {
-          inputToken: "SOL",
-          outputToken: "USDC",
-          amount: "0.3",
-          slippage: "0.5%",
-        },
-      },
-      {
-        id: "tx3",
-        type: "transfer",
-        description: "Transfer BONK to wallet",
-        data: {
-          token: "BONK",
-          recipient: "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263",
-          amount: "1000000",
-        },
-      },
-    ],
-    status: "ready",
-    priority: true,
-    createdAt: Date.now() - 86400000 * 2,
-  },
-  {
-    id: "bundle2",
-    name: "WIF Arbitrage",
-    description: "Arbitrage WIF across multiple DEXs",
-    transactions: [
-      {
-        id: "tx1",
-        type: "swap",
-        description: "Swap SOL for WIF on Jupiter",
-        data: {
-          inputToken: "SOL",
-          outputToken: "WIF",
-          amount: "0.5",
-          slippage: "1%",
-          dex: "Jupiter",
-        },
-      },
-      {
-        id: "tx2",
-        type: "swap",
-        description: "Swap WIF for USDC on Raydium",
-        data: {
-          inputToken: "WIF",
-          outputToken: "USDC",
-          amount: "1000",
-          slippage: "0.5%",
-          dex: "Raydium",
-        },
-      },
-      {
-        id: "tx3",
-        type: "swap",
-        description: "Swap USDC for SOL on Orca",
-        data: {
-          inputToken: "USDC",
-          outputToken: "SOL",
-          amount: "10",
-          slippage: "0.5%",
-          dex: "Orca",
-        },
-      },
-      {
-        id: "tx4",
-        type: "transfer",
-        description: "Transfer profit to wallet",
-        data: {
-          token: "SOL",
-          recipient: "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263",
-          amount: "0.6",
-        },
-      },
-    ],
-    status: "running",
-    priority: true,
-    createdAt: Date.now() - 3600000 * 5,
-  },
-  {
-    id: "bundle3",
-    name: "JTO Liquidation Protection",
-    description: "Protect JTO position from liquidation",
-    transactions: [
-      {
-        id: "tx1",
-        type: "repay",
-        description: "Repay loan",
-        data: {
-          token: "USDC",
-          amount: "100",
-          protocol: "Solend",
-        },
-      },
-      {
-        id: "tx2",
-        type: "withdraw",
-        description: "Withdraw collateral",
-        data: {
-          token: "JTO",
-          amount: "50",
-          protocol: "Solend",
-        },
-      },
-    ],
-    status: "completed",
-    priority: false,
-    createdAt: Date.now() - 86400000,
-  },
-]
-
-// Mock bundle execution history
-const mockHistory = [
-  {
-    id: "exec1",
-    bundleId: "bundle2",
-    bundleName: "WIF Arbitrage",
-    status: "success",
-    timestamp: Date.now() - 3600000,
-    profit: "+0.25 SOL",
-    txHash: "5xGh7Uz9P...",
-    executionTime: 1200, // ms
-    gasUsed: 0.000125,
-  },
-  {
-    id: "exec2",
-    bundleId: "bundle1",
-    bundleName: "BONK Sniper Bundle",
-    status: "failed",
-    timestamp: Date.now() - 7200000,
-    profit: "0 SOL",
-    txHash: "8jKl3Mn7R...",
-    executionTime: 800, // ms
-    gasUsed: 0.000085,
-    error: "Slippage tolerance exceeded",
-  },
-  {
-    id: "exec3",
-    bundleId: "bundle3",
-    bundleName: "JTO Liquidation Protection",
-    status: "success",
-    timestamp: Date.now() - 86400000,
-    profit: "+0.12 SOL",
-    txHash: "2qWe4Rt5Y...",
-    executionTime: 950, // ms
-    gasUsed: 0.000105,
-  },
-]
-
-// Transaction templates
-const transactionTemplates = [
-  {
-    id: "template1",
-    name: "Token Swap",
-    type: "swap",
-    description: "Swap one token for another",
-    fields: ["inputToken", "outputToken", "amount", "slippage"],
-  },
-  {
-    id: "template2",
-    name: "Token Transfer",
-    type: "transfer",
-    description: "Transfer tokens to another wallet",
-    fields: ["token", "recipient", "amount"],
-  },
-  {
-    id: "template3",
-    name: "Loan Repayment",
-    type: "repay",
-    description: "Repay a loan on a lending protocol",
-    fields: ["token", "amount", "protocol"],
-  },
-  {
-    id: "template4",
-    name: "Collateral Withdrawal",
-    type: "withdraw",
-    description: "Withdraw collateral from a lending protocol",
-    fields: ["token", "amount", "protocol"],
-  },
-]
-
-// Function to format timestamps
-const formatTime = (timestamp: number) => {
-  const date = new Date(timestamp)
-  return date.toLocaleTimeString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "numeric",
-  })
+// Default configuration
+const DEFAULT_CONFIG = {
+  bundleTtl: 100,
+  priorityFee: 100000,
+  maxRetries: 3,
+  useDecoys: false,
+  timeJitter: true,
+  rpcEndpoint: "jito",
+  enabled: false,
 }
 
-export default function BundleManager() {
-  const [bundles, setBundles] = useState(mockBundles)
-  const [history, setHistory] = useState(mockHistory)
-  const [isLoading, setIsLoading] = useState(false)
-  const [isJitoEnabled, setIsJitoEnabled] = useState(false)
-  const [expandedBundle, setExpandedBundle] = useState<string | null>(null)
-  const [newBundle, setNewBundle] = useState({
-    name: "",
-    description: "",
+// Mock data for bundles and transactions
+const MOCK_BUNDLES = [
+  {
+    id: "bundle-123456",
+    strategy: "bootstrap",
+    status: "pending",
+    createdAt: Date.now() - 300000,
     transactions: [],
-    priority: false,
-  })
-  const [newTransaction, setNewTransaction] = useState({
-    type: "",
-    description: "",
-    data: {},
-  })
-  const { walletPublicKey } = useJupiterContext()
+  },
+  {
+    id: "bundle-234567",
+    strategy: "creation-aware",
+    status: "confirmed",
+    createdAt: Date.now() - 900000,
+    transactions: ["tx1", "tx2"],
+  },
+]
+
+const MOCK_TRANSACTIONS = [
+  {
+    id: "tx1",
+    bundleId: "bundle-234567",
+    type: "swap",
+    status: "confirmed",
+    createdAt: Date.now() - 900000,
+    signature: "5UxV7...8Ypz",
+  },
+  {
+    id: "tx2",
+    bundleId: "bundle-234567",
+    type: "liquidity",
+    status: "confirmed",
+    createdAt: Date.now() - 890000,
+    signature: "3KmN2...9Rqx",
+  },
+]
+
+export default function BundleManager() {
   const { toast } = useToast()
+  const { walletPublicKey } = useJupiterContext()
 
-  // Check if Jito is enabled
+  // Use refs to track initialization
+  const initialized = useRef(false)
+
+  const [isEnabled, setIsEnabled] = useState(false)
+  const [config, setConfig] = useState(DEFAULT_CONFIG)
+  const [bundles, setBundles] = useState<any[]>([])
+  const [transactions, setTransactions] = useState<any[]>([])
+  const [selectedStrategy, setSelectedStrategy] = useState("bootstrap")
+  const [showSettings, setShowSettings] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+
+  // Initialize once with mock data
   useEffect(() => {
-    const checkJitoStatus = async () => {
-      try {
-        const enabled = jitoService.isEnabled()
-        setIsJitoEnabled(enabled)
+    if (initialized.current) return
 
-        if (enabled) {
-          const status = await jitoService.getStatus()
-          console.log("Jito status:", status)
-        }
-      } catch (error) {
-        console.error("Error checking Jito status:", error)
-      }
-    }
+    // Set mock data
+    setBundles(MOCK_BUNDLES)
+    setTransactions(MOCK_TRANSACTIONS)
+    initialized.current = true
 
-    checkJitoStatus()
+    // Set up polling interval
+    const interval = setInterval(() => {
+      // In a real app, this would fetch updated data
+      // For now, we'll just leave it empty to avoid state updates
+    }, 5000)
+
+    return () => clearInterval(interval)
   }, [])
 
-  // Load bundles
-  const loadBundles = async () => {
+  // Toggle bundle engine
+  const handleToggleEngine = useCallback(
+    (enabled: boolean) => {
+      setIsEnabled(enabled)
+
+      toast({
+        title: enabled ? "Bundle Engine Started" : "Bundle Engine Stopped",
+        description: enabled
+          ? "Now monitoring for bundle opportunities"
+          : "No longer monitoring for bundle opportunities",
+      })
+    },
+    [toast],
+  )
+
+  // Update config
+  const handleUpdateConfig = useCallback(() => {
+    toast({
+      title: "Configuration Updated",
+      description: "Bundle engine configuration has been updated",
+    })
+
+    // Hide settings panel after update
+    setShowSettings(false)
+  }, [config, toast])
+
+  // Create a new bundle
+  const handleCreateBundle = useCallback(() => {
+    if (!walletPublicKey) {
+      toast({
+        title: "Wallet Not Connected",
+        description: "Please connect your wallet to create a bundle",
+        variant: "destructive",
+      })
+      return
+    }
+
     setIsLoading(true)
-    try {
-      // In a real implementation, this would fetch bundles from a backend
-      // For now, we'll just use the mock data
-      setTimeout(() => {
-        setBundles(mockBundles)
-        setHistory(mockHistory)
-        setIsLoading(false)
-      }, 500)
-    } catch (error) {
-      console.error("Error loading bundles:", error)
-      toast({
-        title: "Error loading bundles",
-        description: "Failed to fetch bundles. Please try again.",
-        variant: "destructive",
-      })
+
+    // Simulate bundle creation
+    setTimeout(() => {
+      const newBundle = {
+        id: `bundle-${Date.now()}`,
+        strategy: selectedStrategy,
+        status: "pending",
+        createdAt: Date.now(),
+        transactions: [],
+      }
+
+      setBundles((prev) => [...prev, newBundle])
       setIsLoading(false)
-    }
-  }
 
-  // Toggle bundle expansion
-  const toggleBundleExpansion = (id: string) => {
-    if (expandedBundle === id) {
-      setExpandedBundle(null)
-    } else {
-      setExpandedBundle(id)
-    }
-  }
-
-  // Add transaction to new bundle
-  const addTransaction = () => {
-    if (!newTransaction.type || !newTransaction.description) {
       toast({
-        title: "Missing information",
-        description: "Please select a transaction type and provide a description",
-        variant: "destructive",
+        title: "Bundle Created",
+        description: `New ${selectedStrategy} bundle created successfully`,
       })
-      return
-    }
+    }, 1500)
+  }, [selectedStrategy, toast, walletPublicKey])
 
-    setNewBundle({
-      ...newBundle,
-      transactions: [
-        ...newBundle.transactions,
-        {
-          id: `tx${Date.now()}`,
-          ...newTransaction,
-        },
-      ],
-    })
+  // Cancel a bundle
+  const handleCancelBundle = useCallback(
+    (bundleId: string) => {
+      setIsLoading(true)
 
-    // Reset new transaction form
-    setNewTransaction({
-      type: "",
-      description: "",
-      data: {},
-    })
-  }
+      // Simulate cancellation
+      setTimeout(() => {
+        setBundles((prev) =>
+          prev.map((bundle) => (bundle.id === bundleId ? { ...bundle, status: "cancelled" } : bundle)),
+        )
 
-  // Create new bundle
-  const createBundle = () => {
-    if (!newBundle.name) {
-      toast({
-        title: "Missing information",
-        description: "Please provide a bundle name",
-        variant: "destructive",
-      })
-      return
-    }
+        setIsLoading(false)
 
-    if (newBundle.transactions.length === 0) {
-      toast({
-        title: "No transactions",
-        description: "Please add at least one transaction to the bundle",
-        variant: "destructive",
-      })
-      return
-    }
-
-    const newBundleObj = {
-      id: `bundle${Date.now()}`,
-      ...newBundle,
-      status: "ready",
-      createdAt: Date.now(),
-    }
-
-    setBundles([...bundles, newBundleObj])
-
-    // Reset form
-    setNewBundle({
-      name: "",
-      description: "",
-      transactions: [],
-      priority: false,
-    })
-
-    toast({
-      title: "Bundle created",
-      description: `Bundle ${newBundleObj.name} has been created`,
-    })
-  }
-
-  // Delete bundle
-  const deleteBundle = (id: string) => {
-    setBundles(bundles.filter((bundle) => bundle.id !== id))
-    toast({
-      title: "Bundle deleted",
-      description: `Bundle ${bundles.find((b) => b.id === id)?.name} has been deleted`,
-    })
-  }
-
-  // Toggle bundle status
-  const toggleBundleStatus = (id: string) => {
-    setBundles(
-      bundles.map((bundle) => {
-        if (bundle.id === id) {
-          const newStatus = bundle.status === "running" ? "ready" : "running"
-          return {
-            ...bundle,
-            status: newStatus,
-          }
-        }
-        return bundle
-      }),
-    )
-
-    toast({
-      title: "Bundle status updated",
-      description: `Bundle ${bundles.find((b) => b.id === id)?.name} is now ${bundles.find((b) => b.id === id)?.status === "running" ? "paused" : "running"}`,
-    })
-  }
-
-  // Toggle bundle priority
-  const toggleBundlePriority = (id: string) => {
-    setBundles(
-      bundles.map((bundle) => {
-        if (bundle.id === id) {
-          return {
-            ...bundle,
-            priority: !bundle.priority,
-          }
-        }
-        return bundle
-      }),
-    )
-  }
-
-  // Duplicate bundle
-  const duplicateBundle = (bundle: any) => {
-    const newBundle = {
-      ...bundle,
-      id: `bundle${Date.now()}`,
-      name: `${bundle.name} (Copy)`,
-      status: "ready",
-      createdAt: Date.now(),
-    }
-
-    setBundles([...bundles, newBundle])
-
-    toast({
-      title: "Bundle duplicated",
-      description: `Bundle ${bundle.name} has been duplicated`,
-    })
-  }
+        toast({
+          title: "Bundle Cancelled",
+          description: "Bundle has been cancelled",
+        })
+      }, 1000)
+    },
+    [toast],
+  )
 
   return (
-    <div className="space-y-6">
-      <Tabs defaultValue="bundles">
-        <TabsList className="mb-6">
-          <TabsTrigger value="bundles">Bundles</TabsTrigger>
-          <TabsTrigger value="history">Execution History</TabsTrigger>
-          <TabsTrigger value="templates">Templates</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="bundles">
-          <div className="bg-[#151514] border border-[#30302e] rounded-lg p-6">
-            <div className="flex justify-between items-center mb-6">
-              <div>
-                <h2 className="text-xl font-bold">Bundle Manager</h2>
-                <p className="text-sm text-[#707070]">
-                  {isJitoEnabled
-                    ? "Jito bundles are enabled for MEV protection"
-                    : "Jito bundles are disabled. Enable them in settings for MEV protection."}
-                </p>
-              </div>
-              <div className="flex space-x-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={loadBundles}
-                  disabled={isLoading}
-                  className="bg-[#1d1d1c] border-[#30302e] hover:bg-[#30302e]"
-                >
-                  <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
-                  Refresh
-                </Button>
-
-                <Dialog>
-                  <DialogTrigger asChild>
-                    <Button className="bg-gradient-to-r from-[#00B6E7] to-[#A4D756] hover:opacity-90 text-[#0C0C0C] font-medium">
-                      <Plus className="h-4 w-4 mr-2" />
-                      New Bundle
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="bg-[#151514] border-[#30302e] text-white max-w-3xl">
-                    <DialogHeader>
-                      <DialogTitle>Create New Bundle</DialogTitle>
-                      <DialogDescription className="text-[#707070]">
-                        Configure your transaction bundle for execution
-                      </DialogDescription>
-                    </DialogHeader>
-
-                    <div className="space-y-4 py-4">
-                      <div className="grid grid-cols-1 gap-4">
-                        <div>
-                          <Label htmlFor="name">Bundle Name</Label>
-                          <Input
-                            id="name"
-                            value={newBundle.name}
-                            onChange={(e) => setNewBundle({ ...newBundle, name: e.target.value })}
-                            className="bg-[#1d1d1c] border-[#30302e]"
-                          />
-                        </div>
-
-                        <div>
-                          <Label htmlFor="description">Description</Label>
-                          <Textarea
-                            id="description"
-                            value={newBundle.description}
-                            onChange={(e) => setNewBundle({ ...newBundle, description: e.target.value })}
-                            className="bg-[#1d1d1c] border-[#30302e]"
-                          />
-                        </div>
-
-                        <div className="flex items-center space-x-2">
-                          <Switch
-                            id="priority"
-                            checked={newBundle.priority}
-                            onCheckedChange={(checked) => setNewBundle({ ...newBundle, priority: checked })}
-                          />
-                          <Label htmlFor="priority">Priority Bundle</Label>
-                        </div>
-
-                        <div className="border-t border-[#30302e] pt-4">
-                          <h3 className="text-lg font-medium mb-4">Transactions</h3>
-
-                          {newBundle.transactions.length > 0 ? (
-                            <div className="space-y-2 mb-4">
-                              {newBundle.transactions.map((tx, index) => (
-                                <div key={tx.id} className="bg-[#1d1d1c] p-3 rounded flex justify-between items-center">
-                                  <div>
-                                    <p className="font-medium">{tx.description}</p>
-                                    <p className="text-xs text-[#707070]">Type: {tx.type}</p>
-                                  </div>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() =>
-                                      setNewBundle({
-                                        ...newBundle,
-                                        transactions: newBundle.transactions.filter((_, i) => i !== index),
-                                      })
-                                    }
-                                    className="h-8 w-8 text-[#E57676]"
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
-                                </div>
-                              ))}
-                            </div>
-                          ) : (
-                            <div className="bg-[#1d1d1c] p-4 rounded text-center mb-4">
-                              <p className="text-[#707070]">No transactions added yet</p>
-                            </div>
-                          )}
-
-                          <div className="bg-[#1d1d1c] p-4 rounded">
-                            <h4 className="text-sm font-medium mb-2">Add Transaction</h4>
-
-                            <div className="space-y-3">
-                              <div>
-                                <Label htmlFor="txType">Transaction Type</Label>
-                                <Select
-                                  value={newTransaction.type}
-                                  onValueChange={(value) => setNewTransaction({ ...newTransaction, type: value })}
-                                >
-                                  <SelectTrigger id="txType" className="bg-[#151514] border-[#30302e]">
-                                    <SelectValue placeholder="Select transaction type" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="swap">Token Swap</SelectItem>
-                                    <SelectItem value="transfer">Token Transfer</SelectItem>
-                                    <SelectItem value="repay">Loan Repayment</SelectItem>
-                                    <SelectItem value="withdraw">Collateral Withdrawal</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                              </div>
-
-                              <div>
-                                <Label htmlFor="txDescription">Description</Label>
-                                <Input
-                                  id="txDescription"
-                                  value={newTransaction.description}
-                                  onChange={(e) =>
-                                    setNewTransaction({ ...newTransaction, description: e.target.value })
-                                  }
-                                  className="bg-[#151514] border-[#30302e]"
-                                />
-                              </div>
-
-                              <Button onClick={addTransaction} className="w-full">
-                                Add Transaction
-                              </Button>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <DialogFooter>
-                      <Button
-                        variant="outline"
-                        onClick={() =>
-                          setNewBundle({
-                            name: "",
-                            description: "",
-                            transactions: [],
-                            priority: false,
-                          })
-                        }
-                      >
-                        Reset
-                      </Button>
-                      <Button onClick={createBundle}>Create Bundle</Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
-              </div>
+    <div className="grid grid-cols-1 gap-4">
+      <Card className="bg-[#151514] border-[#30302e]">
+        <CardHeader className="pb-2">
+          <div className="flex justify-between items-center">
+            <div>
+              <CardTitle className="text-xl font-syne">Bundle Engine</CardTitle>
+              <CardDescription>Manage and execute transaction bundles</CardDescription>
             </div>
-
-            <div className="space-y-4">
-              {bundles.length > 0 ? (
-                bundles.map((bundle) => (
-                  <Card key={bundle.id} className="bg-[#151514] border-[#30302e]">
-                    <CardHeader className="pb-2">
-                      <div className="flex justify-between items-start">
-                        <div className="flex-1">
-                          <div className="flex items-center">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => toggleBundleExpansion(bundle.id)}
-                              className="h-6 w-6 mr-2 -ml-2"
-                            >
-                              {expandedBundle === bundle.id ? (
-                                <ChevronUp className="h-4 w-4" />
-                              ) : (
-                                <ChevronDown className="h-4 w-4" />
-                              )}
-                            </Button>
-                            <CardTitle>{bundle.name}</CardTitle>
-                            <span
-                              className={`ml-2 text-xs px-2 py-0.5 rounded ${
-                                bundle.status === "running"
-                                  ? "bg-[#332E1A] text-[#F9CB40]"
-                                  : bundle.status === "completed"
-                                    ? "bg-[#1E3323] text-[#A4D756]"
-                                    : "bg-[#1d1d1c] text-[#707070]"
-                              }`}
-                            >
-                              <StatusBadge status={bundle.status} />
-                            </span>
-                            {bundle.priority && (
-                              <span className="ml-2 text-xs px-2 py-0.5 rounded bg-[#332E1A] text-[#F9CB40]">
-                                Priority
-                              </span>
-                            )}
-                          </div>
-                          <CardDescription>
-                            {bundle.description} • {bundle.transactions.length} transactions
-                          </CardDescription>
-                        </div>
-                        <div className="flex space-x-2">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => toggleBundleStatus(bundle.id)}
-                            className={`h-8 w-8 ${bundle.status === "running" ? "text-[#F9CB40]" : "text-[#A4D756]"}`}
-                            disabled={bundle.status === "completed"}
-                          >
-                            {bundle.status === "running" ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-                            <span className="sr-only">{bundle.status === "running" ? "Pause" : "Start"}</span>
-                          </Button>
-
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => duplicateBundle(bundle)}
-                            className="h-8 w-8"
-                          >
-                            <Copy className="h-4 w-4" />
-                            <span className="sr-only">Duplicate</span>
-                          </Button>
-
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => deleteBundle(bundle.id)}
-                            className="h-8 w-8 text-[#E57676]"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                            <span className="sr-only">Delete</span>
-                          </Button>
-                        </div>
-                      </div>
-                    </CardHeader>
-
-                    {expandedBundle === bundle.id && (
-                      <CardContent>
-                        <div className="space-y-4">
-                          <div className="flex items-center justify-between">
-                            <div className="text-sm">
-                              <span className="text-[#707070]">Created:</span> {formatTime(bundle.createdAt)}
-                            </div>
-                            <div className="flex items-center space-x-2">
-                              <span className="text-sm text-[#707070]">Priority:</span>
-                              <Switch
-                                checked={bundle.priority}
-                                onCheckedChange={() => toggleBundlePriority(bundle.id)}
-                                className="data-[state=checked]:bg-[#F9CB40]"
-                              />
-                            </div>
-                          </div>
-
-                          <div className="border-t border-[#30302e] pt-4">
-                            <h3 className="text-sm font-medium mb-2">Transactions</h3>
-                            <div className="space-y-2">
-                              {bundle.transactions.map((tx, index) => (
-                                <div key={tx.id} className="bg-[#1d1d1c] p-3 rounded">
-                                  <div className="flex justify-between items-start">
-                                    <div>
-                                      <p className="font-medium">{tx.description}</p>
-                                      <p className="text-xs text-[#707070]">Type: {tx.type}</p>
-                                    </div>
-                                    <span className="text-xs text-[#707070]">#{index + 1}</span>
-                                  </div>
-
-                                  <div className="mt-2 pt-2 border-t border-[#30302e] text-xs">
-                                    {tx.type === "swap" && (
-                                      <div className="grid grid-cols-2 gap-2">
-                                        <div>
-                                          <span className="text-[#707070]">Input:</span> {tx.data.amount}{" "}
-                                          {tx.data.inputToken}
-                                        </div>
-                                        <div>
-                                          <span className="text-[#707070]">Output:</span> {tx.data.outputToken}
-                                        </div>
-                                        <div>
-                                          <span className="text-[#707070]">Slippage:</span> {tx.data.slippage}
-                                        </div>
-                                        {tx.data.dex && (
-                                          <div>
-                                            <span className="text-[#707070]">DEX:</span> {tx.data.dex}
-                                          </div>
-                                        )}
-                                      </div>
-                                    )}
-
-                                    {tx.type === "transfer" && (
-                                      <div className="grid grid-cols-2 gap-2">
-                                        <div>
-                                          <span className="text-[#707070]">Token:</span> {tx.data.token}
-                                        </div>
-                                        <div>
-                                          <span className="text-[#707070]">Amount:</span> {tx.data.amount}
-                                        </div>
-                                        <div className="col-span-2">
-                                          <span className="text-[#707070]">Recipient:</span> {tx.data.recipient}
-                                        </div>
-                                      </div>
-                                    )}
-
-                                    {(tx.type === "repay" || tx.type === "withdraw") && (
-                                      <div className="grid grid-cols-2 gap-2">
-                                        <div>
-                                          <span className="text-[#707070]">Token:</span> {tx.data.token}
-                                        </div>
-                                        <div>
-                                          <span className="text-[#707070]">Amount:</span> {tx.data.amount}
-                                        </div>
-                                        <div>
-                                          <span className="text-[#707070]">Protocol:</span> {tx.data.protocol}
-                                        </div>
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        </div>
-                      </CardContent>
-                    )}
-                  </Card>
-                ))
-              ) : (
-                <Card className="bg-[#151514] border-[#30302e]">
-                  <CardContent className="py-8 flex flex-col items-center justify-center">
-                    {isLoading ? (
-                      <div className="flex items-center">
-                        <RefreshCw className="h-5 w-5 animate-spin mr-2" />
-                        <p>Loading bundles...</p>
-                      </div>
-                    ) : (
-                      <>
-                        <AlertTriangle className="h-12 w-12 text-[#707070] mb-4" />
-                        <h3 className="text-lg font-medium mb-1">No bundles found</h3>
-                        <p className="text-[#707070] mb-4">
-                          You haven't created any transaction bundles yet. Create your first bundle to get started.
-                        </p>
-                        <Dialog>
-                          <DialogTrigger asChild>
-                            <Button>Create Your First Bundle</Button>
-                          </DialogTrigger>
-                          <DialogContent className="bg-[#151514] border-[#30302e] text-white">
-                            {/* Bundle creation form would go here */}
-                          </DialogContent>
-                        </Dialog>
-                      </>
-                    )}
-                  </CardContent>
-                </Card>
-              )}
-            </div>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="history">
-          <div className="bg-[#151514] border border-[#30302e] rounded-lg p-6">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-bold">Execution History</h2>
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-2">
+                <div
+                  className={`h-2 w-2 rounded-full ${isEnabled ? "bg-[#76D484] animate-pulse" : "bg-[#E57676]"}`}
+                ></div>
+                <span className="text-sm text-[#707070]">{isEnabled ? "Active" : "Inactive"}</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="enableEngine"
+                  checked={isEnabled}
+                  onCheckedChange={handleToggleEngine}
+                  className="data-[state=checked]:bg-gradient-to-r from-[#00B6E7] to-[#A4D756]"
+                />
+                <Label htmlFor="enableEngine">Enable</Label>
+              </div>
               <Button
                 variant="outline"
-                size="sm"
-                onClick={loadBundles}
-                disabled={isLoading}
+                size="icon"
                 className="bg-[#1d1d1c] border-[#30302e] hover:bg-[#30302e]"
+                onClick={() => setShowSettings(!showSettings)}
               >
-                <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
-                Refresh
+                <Settings className="h-4 w-4" />
               </Button>
             </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="text-[#707070] text-sm border-b border-[#30302e]">
-                    <th className="pb-2 text-left">Bundle</th>
-                    <th className="pb-2 text-left">Status</th>
-                    <th className="pb-2 text-left">Time</th>
-                    <th className="pb-2 text-left">Profit/Loss</th>
-                    <th className="pb-2 text-left">Execution Time</th>
-                    <th className="pb-2 text-left">Gas Used</th>
-                    <th className="pb-2 text-left">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {history.length > 0 ? (
-                    history.map((item) => (
-                      <tr key={item.id} className="border-b border-[#30302e] hover:bg-[#1d1d1c]">
-                        <td className="py-4 font-medium">{item.bundleName}</td>
-                        <td className="py-4">
-                          <StatusBadge status={item.status} />
-                        </td>
-                        <td className="py-4">{formatTime(item.timestamp)}</td>
-                        <td className="py-4">
-                          <span
-                            className={
-                              item.profit.startsWith("+")
-                                ? "text-[#A4D756]"
-                                : item.profit === "0 SOL"
-                                  ? "text-[#707070]"
-                                  : "text-[#E57676]"
-                            }
-                          >
-                            {item.profit}
-                          </span>
-                        </td>
-                        <td className="py-4">{item.executionTime}ms</td>
-                        <td className="py-4">{item.gasUsed} SOL</td>
-                        <td className="py-4">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                            onClick={() => window.open(`https://solscan.io/tx/${item.txHash}`, "_blank")}
-                          >
-                            <ExternalLink className="h-4 w-4" />
-                            <span className="sr-only">View on Solscan</span>
-                          </Button>
-                        </td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan={7} className="py-8 text-center text-[#707070]">
-                        {isLoading ? (
-                          <div className="flex justify-center items-center">
-                            <RefreshCw className="h-5 w-5 animate-spin mr-2" />
-                            Loading execution history...
-                          </div>
-                        ) : (
-                          <div className="flex flex-col items-center">
-                            <AlertTriangle className="h-8 w-8 mb-2" />
-                            No execution history found
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
           </div>
-        </TabsContent>
+        </CardHeader>
+        <CardContent>
+          <Tabs defaultValue="bundles">
+            <TabsList className="bg-[#1d1d1c] border border-[#30302e]">
+              <TabsTrigger value="bundles">Bundles</TabsTrigger>
+              <TabsTrigger value="transactions">Transactions</TabsTrigger>
+            </TabsList>
 
-        <TabsContent value="templates">
-          <div className="bg-[#151514] border border-[#30302e] rounded-lg p-6">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-bold">Bundle Templates</h2>
-              <Button className="bg-gradient-to-r from-[#00B6E7] to-[#A4D756] hover:opacity-90 text-[#0C0C0C] font-medium">
-                <Plus className="h-4 w-4 mr-2" />
-                New Template
-              </Button>
-            </div>
+            <TabsContent value="bundles" className="mt-4">
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
+                <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
+                  <div className="flex items-center space-x-2">
+                    <Label htmlFor="strategySelect">Strategy:</Label>
+                    <Select value={selectedStrategy} onValueChange={setSelectedStrategy}>
+                      <SelectTrigger className="w-40 bg-[#1d1d1c] border-[#30302e]">
+                        <SelectValue placeholder="Select strategy" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-[#1d1d1c] border-[#30302e]">
+                        <SelectItem value="bootstrap">Bootstrap</SelectItem>
+                        <SelectItem value="creation-aware">Creation Aware</SelectItem>
+                        <SelectItem value="breakout">Breakout</SelectItem>
+                        <SelectItem value="bollinger">Bollinger Bands</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {transactionTemplates.map((template) => (
-                <Card key={template.id} className="bg-[#1d1d1c] border-[#30302e]">
-                  <CardHeader>
-                    <CardTitle className="text-lg">{template.name}</CardTitle>
-                  </CardHeader>
-                </Card>
-              ))}
-            </div>
-          </div>
-        </TabsContent>
-      </Tabs>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" size="sm" className="bg-[#1d1d1c] border-[#30302e] hover:bg-[#30302e]">
+                        Strategy Info
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-80 bg-[#1d1d1c] border-[#30302e]">
+                      {selectedStrategy === "bootstrap" && (
+                        <div className="space-y-2">
+                          <h4 className="font-medium">Bootstrap Strategy</h4>
+                          <p className="text-sm text-[#707070]">
+                            Combines token creation and transaction bundling for coordinated launches.
+                          </p>
+                        </div>
+                      )}
+                      {selectedStrategy === "creation-aware" && (
+                        <div className="space-y-2">
+                          <h4 className="font-medium">Creation Aware Strategy</h4>
+                          <p className="text-sm text-[#707070]">
+                            Watches for new token creations and automatically executes buy/sell transactions.
+                          </p>
+                        </div>
+                      )}
+                      {selectedStrategy === "breakout" && (
+                        <div className="space-y-2">
+                          <h4 className="font-medium">Breakout Strategy</h4>
+                          <p className="text-sm text-[#707070]">
+                            Identifies and trades breakout patterns with momentum confirmation.
+                          </p>
+                        </div>
+                      )}
+                      {selectedStrategy === "bollinger" && (
+                        <div className="space-y-2">
+                          <h4 className="font-medium">Bollinger Bands Strategy</h4>
+                          <p className="text-sm text-[#707070]">
+                            Uses Bollinger Bands to identify overbought and oversold conditions.
+                          </p>
+                        </div>
+                      )}
+                    </PopoverContent>
+                  </Popover>
+                </div>
+
+                <Button
+                  className="bg-gradient-to-r from-[#00B6E7] to-[#A4D756] hover:opacity-90 text-[#0C0C0C] font-medium"
+                  onClick={handleCreateBundle}
+                  disabled={isLoading || !walletPublicKey}
+                >
+                  <Zap className={`mr-2 h-4 w-4 ${isLoading ? "animate-pulse" : ""}`} />
+                  Create Bundle
+                </Button>
+              </div>
+
+              {bundles.length === 0 ? (
+                <div className="p-8 text-center text-[#707070]">
+                  <Zap className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>No bundles created yet.</p>
+                  <p className="text-sm mt-2">Create a bundle to get started.</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader className="bg-[#1d1d1c]">
+                      <TableRow>
+                        <TableHead>ID</TableHead>
+                        <TableHead>Strategy</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Created</TableHead>
+                        <TableHead>Transactions</TableHead>
+                        <TableHead className="text-right">Action</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {bundles.map((bundle) => (
+                        <TableRow key={bundle.id} className="border-[#30302e]">
+                          <TableCell className="font-medium">{bundle.id.substring(0, 8)}...</TableCell>
+                          <TableCell className="capitalize">{bundle.strategy}</TableCell>
+                          <TableCell>
+                            {bundle.status === "pending" && <Badge className="bg-[#22CCEE]">Pending</Badge>}
+                            {bundle.status === "submitted" && <Badge className="bg-[#76D484]">Submitted</Badge>}
+                            {bundle.status === "confirmed" && <Badge className="bg-[#76D484]">Confirmed</Badge>}
+                            {bundle.status === "failed" && <Badge className="bg-[#E57676]">Failed</Badge>}
+                            {bundle.status === "cancelled" && <Badge className="bg-[#707070]">Cancelled</Badge>}
+                          </TableCell>
+                          <TableCell>{new Date(bundle.createdAt).toLocaleTimeString()}</TableCell>
+                          <TableCell>{bundle.transactions.length}</TableCell>
+                          <TableCell className="text-right">
+                            {bundle.status === "pending" && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 text-[#E57676] hover:text-[#ff4d4d]"
+                                onClick={() => handleCancelBundle(bundle.id)}
+                                disabled={isLoading}
+                              >
+                                Cancel
+                              </Button>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </TabsContent>
+
+            <TabsContent value="transactions" className="mt-4">
+              {transactions.length === 0 ? (
+                <div className="p-8 text-center text-[#707070]">
+                  <RefreshCw className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>No transactions yet.</p>
+                  <p className="text-sm mt-2">Transactions will appear here when bundles are created.</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader className="bg-[#1d1d1c]">
+                      <TableRow>
+                        <TableHead>ID</TableHead>
+                        <TableHead>Bundle</TableHead>
+                        <TableHead>Type</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Created</TableHead>
+                        <TableHead>Signature</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {transactions.map((tx) => (
+                        <TableRow key={tx.id} className="border-[#30302e]">
+                          <TableCell className="font-medium">{tx.id.substring(0, 8)}...</TableCell>
+                          <TableCell>{tx.bundleId.substring(0, 8)}...</TableCell>
+                          <TableCell className="capitalize">{tx.type}</TableCell>
+                          <TableCell>
+                            {tx.status === "pending" && <Badge className="bg-[#22CCEE]">Pending</Badge>}
+                            {tx.status === "confirmed" && <Badge className="bg-[#76D484]">Confirmed</Badge>}
+                            {tx.status === "failed" && <Badge className="bg-[#E57676]">Failed</Badge>}
+                          </TableCell>
+                          <TableCell>{new Date(tx.createdAt).toLocaleTimeString()}</TableCell>
+                          <TableCell>
+                            {tx.signature ? (
+                              <a
+                                href={`https://solscan.io/tx/${tx.signature}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-[#22CCEE] hover:underline"
+                              >
+                                {tx.signature.substring(0, 8)}...
+                              </a>
+                            ) : (
+                              "—"
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
+
+          {/* Settings Panel */}
+          <Collapsible open={showSettings} onOpenChange={setShowSettings}>
+            <CollapsibleContent className="mt-4 p-4 rounded-lg bg-[#1d1d1c] border border-[#30302e] space-y-6">
+              <div className="flex justify-between items-center">
+                <h3 className="text-lg font-medium">Engine Settings</h3>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowSettings(false)}
+                  className="text-[#707070] hover:text-white"
+                >
+                  Hide
+                </Button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <h4 className="text-sm font-medium">Bundle Parameters</h4>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="bundleTtl">Bundle TTL (slots)</Label>
+                    <div className="flex items-center space-x-2">
+                      <Input
+                        id="bundleTtl"
+                        type="number"
+                        value={config.bundleTtl}
+                        onChange={(e) => setConfig({ ...config, bundleTtl: Number(e.target.value) })}
+                        className="bg-[#252523] border-[#30302e]"
+                      />
+                      <span className="text-sm text-[#707070]">slots</span>
+                    </div>
+                    <p className="text-xs text-[#707070]">Time-to-live for bundles in Solana slots</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <Label htmlFor="priorityFee">Priority Fee (lamports)</Label>
+                      <span className="text-sm text-[#707070]">{config.priorityFee}</span>
+                    </div>
+                    <Slider
+                      id="priorityFee"
+                      min={0}
+                      max={1000000}
+                      step={10000}
+                      value={[config.priorityFee]}
+                      onValueChange={(value) => setConfig({ ...config, priorityFee: value[0] })}
+                      className="[&>span]:bg-gradient-to-r [&>span]:from-[#00B6E7] [&>span]:to-[#A4D756]"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="maxRetries">Max Retries</Label>
+                    <Input
+                      id="maxRetries"
+                      type="number"
+                      value={config.maxRetries}
+                      onChange={(e) => setConfig({ ...config, maxRetries: Number(e.target.value) })}
+                      className="bg-[#252523] border-[#30302e]"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <h4 className="text-sm font-medium">Advanced Settings</h4>
+
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label htmlFor="useDecoys">Use Decoy Transactions</Label>
+                      <p className="text-xs text-[#707070]">Add decoy transactions to prevent frontrunning</p>
+                    </div>
+                    <Switch
+                      id="useDecoys"
+                      checked={config.useDecoys}
+                      onCheckedChange={(checked) => setConfig({ ...config, useDecoys: checked })}
+                      className="data-[state=checked]:bg-gradient-to-r from-[#00B6E7] to-[#A4D756]"
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label htmlFor="timeJitter">Time Jitter</Label>
+                      <p className="text-xs text-[#707070]">Add random time delay to transactions</p>
+                    </div>
+                    <Switch
+                      id="timeJitter"
+                      checked={config.timeJitter}
+                      onCheckedChange={(checked) => setConfig({ ...config, timeJitter: checked })}
+                      className="data-[state=checked]:bg-gradient-to-r from-[#00B6E7] to-[#A4D756]"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="rpcEndpoint">RPC Endpoint</Label>
+                    <Select
+                      value={config.rpcEndpoint}
+                      onValueChange={(value) => setConfig({ ...config, rpcEndpoint: value })}
+                    >
+                      <SelectTrigger className="bg-[#252523] border-[#30302e]">
+                        <SelectValue placeholder="Select RPC endpoint" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-[#1d1d1c] border-[#30302e]">
+                        <SelectItem value="quicknode">QuickNode</SelectItem>
+                        <SelectItem value="jito">Jito</SelectItem>
+                        <SelectItem value="helius">Helius</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-between items-center pt-4">
+                <div className="p-3 rounded-lg bg-[#252523] border border-[#E57676] flex items-start space-x-2">
+                  <AlertTriangle className="h-4 w-4 text-[#E57676] mt-0.5 flex-shrink-0" />
+                  <p className="text-xs text-[#707070]">
+                    Bundle execution involves MEV risk. Use appropriate settings to minimize frontrunning.
+                  </p>
+                </div>
+
+                <Button
+                  className="bg-gradient-to-r from-[#00B6E7] to-[#A4D756] hover:opacity-90 text-[#0C0C0C] font-medium"
+                  onClick={handleUpdateConfig}
+                  disabled={isLoading}
+                >
+                  <Zap className="mr-2 h-4 w-4" />
+                  Update Configuration
+                </Button>
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
+        </CardContent>
+      </Card>
     </div>
   )
 }

@@ -1,176 +1,178 @@
 "use client"
 
-import type React from "react"
+import { useState, useEffect } from "react"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { CheckCircle2, XCircle, Clock, ExternalLink } from "lucide-react"
 
-import { useState } from "react"
-import { Check, X, Clock, ExternalLink } from "lucide-react"
+interface TransactionMonitorProps {
+  setPendingTxs: (count: number) => void
+  setSuccessfulSnipes: (count: number) => void
+}
 
-// Mock transaction data
-const mockTransactions = [
+interface Transaction {
+  id: string
+  hash: string
+  token: string
+  amount: number
+  price: number
+  status: "pending" | "success" | "failed"
+  timestamp: Date
+  priorityFee: number
+}
+
+const mockTransactions: Transaction[] = [
   {
     id: "tx1",
-    hash: "5xGh7Uz9P...",
-    type: "swap",
-    status: "success",
-    amount: "10.5 SOL",
+    hash: "5UxV7...8Ypz",
     token: "BONK",
-    timestamp: new Date().getTime() - 120000,
+    amount: 25000000,
+    price: 0.000011,
+    status: "pending",
+    timestamp: new Date(),
+    priorityFee: 0.00045,
   },
   {
     id: "tx2",
-    hash: "8jKl3Mn7R...",
-    type: "snipe",
-    status: "pending",
-    amount: "5.2 SOL",
+    hash: "3KmN2...9Rqx",
     token: "WIF",
-    timestamp: new Date().getTime() - 60000,
+    amount: 1250,
+    price: 0.00022,
+    status: "success",
+    timestamp: new Date(Date.now() - 120000),
+    priorityFee: 0.00052,
   },
   {
     id: "tx3",
-    hash: "2qWe4Rt5Y...",
-    type: "sell",
+    hash: "7PzQ8...2Fvb",
+    token: "JTO",
+    amount: 350,
+    price: 0.0014,
+    status: "success",
+    timestamp: new Date(Date.now() - 360000),
+    priorityFee: 0.00038,
+  },
+  {
+    id: "tx4",
+    hash: "9TxR5...1Hgc",
+    token: "PYTH",
+    amount: 125,
+    price: 0.0085,
     status: "failed",
-    amount: "3.7 SOL",
-    token: "BOME",
-    timestamp: new Date().getTime() - 30000,
+    timestamp: new Date(Date.now() - 480000),
+    priorityFee: 0.00062,
+  },
+  {
+    id: "tx5",
+    hash: "2LpK7...4Dvs",
+    token: "BONK",
+    amount: 18000000,
+    price: 0.000012,
+    status: "success",
+    timestamp: new Date(Date.now() - 720000),
+    priorityFee: 0.00041,
   },
 ]
 
-export default function TransactionMonitor() {
-  const [transactions, setTransactions] = useState(mockTransactions)
-  const [filter, setFilter] = useState("all")
+export default function TransactionMonitor({ setPendingTxs, setSuccessfulSnipes }: TransactionMonitorProps) {
+  const [transactions, setTransactions] = useState<Transaction[]>(mockTransactions)
 
-  // Filter transactions based on status
-  const filteredTransactions = transactions.filter((tx) => {
-    if (filter === "all") return true
-    return tx.status === filter
-  })
+  useEffect(() => {
+    // Update the parent component with counts
+    const pendingCount = transactions.filter((tx) => tx.status === "pending").length
+    const successCount = transactions.filter((tx) => tx.status === "success").length
+
+    setPendingTxs(pendingCount)
+    setSuccessfulSnipes(successCount)
+
+    // Simulate transaction updates
+    const interval = setInterval(() => {
+      setTransactions((prev) => {
+        const updated = [...prev]
+        // Randomly update a pending transaction to success
+        const pendingIndex = updated.findIndex((tx) => tx.status === "pending")
+        if (pendingIndex !== -1 && Math.random() > 0.5) {
+          updated[pendingIndex] = {
+            ...updated[pendingIndex],
+            status: "success",
+          }
+        }
+        return updated
+      })
+    }, 8000)
+
+    return () => clearInterval(interval)
+  }, [transactions, setPendingTxs, setSuccessfulSnipes])
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case "pending":
+        return <Clock className="h-4 w-4 text-[#22CCEE]" />
+      case "success":
+        return <CheckCircle2 className="h-4 w-4 text-[#76D484]" />
+      case "failed":
+        return <XCircle className="h-4 w-4 text-[#E57676]" />
+      default:
+        return null
+    }
+  }
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case "pending":
+        return <Badge className="bg-[#22CCEE] text-[#0C0C0C]">Pending</Badge>
+      case "success":
+        return <Badge className="bg-[#76D484] text-[#0C0C0C]">Success</Badge>
+      case "failed":
+        return <Badge className="bg-[#E57676] text-[#0C0C0C]">Failed</Badge>
+      default:
+        return null
+    }
+  }
 
   return (
-    <div className="bg-[#151514] border border-[#30302e] rounded-lg p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-xl font-bold">Transaction Monitor</h2>
-        <div className="flex space-x-2">
-          <FilterButton active={filter === "all"} onClick={() => setFilter("all")}>
-            All
-          </FilterButton>
-          <FilterButton active={filter === "success"} onClick={() => setFilter("success")}>
-            Success
-          </FilterButton>
-          <FilterButton active={filter === "pending"} onClick={() => setFilter("pending")}>
-            Pending
-          </FilterButton>
-          <FilterButton active={filter === "failed"} onClick={() => setFilter("failed")}>
-            Failed
-          </FilterButton>
+    <Card className="bg-[#151514] border-[#30302e]">
+      <CardHeader>
+        <CardTitle className="text-xl font-[Syne]">Transaction Monitor</CardTitle>
+        <CardDescription>Track your snipe transactions in real-time</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-4">
+          {transactions.map((tx) => (
+            <div key={tx.id} className="p-4 rounded-lg border border-[#30302e] bg-[#1d1d1c]">
+              <div className="flex justify-between items-start">
+                <div>
+                  <div className="flex items-center space-x-2">
+                    <div className="font-medium font-[Syne]">{tx.token}</div>
+                    {getStatusBadge(tx.status)}
+                  </div>
+                  <div className="text-sm text-[#707070] mt-1">{tx.timestamp.toLocaleTimeString()}</div>
+                </div>
+                <div className="text-right">
+                  <div className="font-medium">{tx.amount.toLocaleString()} tokens</div>
+                  <div className="text-sm text-[#707070]">@ {tx.price.toFixed(8)} SOL</div>
+                </div>
+              </div>
+
+              <div className="mt-3 pt-3 border-t border-[#30302e] flex justify-between items-center">
+                <div className="flex items-center space-x-2 text-sm text-[#707070]">
+                  <div className="flex items-center">
+                    {getStatusIcon(tx.status)}
+                    <span className="ml-1">Tx: {tx.hash}</span>
+                  </div>
+                </div>
+                <div className="flex items-center space-x-3">
+                  <div className="text-xs text-[#707070]">Priority Fee: {tx.priorityFee.toFixed(5)} SOL</div>
+                  <Button variant="ghost" size="icon" className="h-8 w-8">
+                    <ExternalLink className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
-      </div>
-
-      <div className="overflow-x-auto">
-        <table className="w-full">
-          <thead>
-            <tr className="text-[#707070] text-sm border-b border-[#30302e]">
-              <th className="pb-2 text-left">Status</th>
-              <th className="pb-2 text-left">Type</th>
-              <th className="pb-2 text-left">Token</th>
-              <th className="pb-2 text-left">Amount</th>
-              <th className="pb-2 text-left">Time</th>
-              <th className="pb-2 text-left">Tx Hash</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredTransactions.map((tx) => (
-              <tr key={tx.id} className="border-b border-[#30302e] hover:bg-[#1d1d1c]">
-                <td className="py-4">
-                  <StatusBadge status={tx.status} />
-                </td>
-                <td className="py-4 capitalize">{tx.type}</td>
-                <td className="py-4">{tx.token}</td>
-                <td className="py-4">{tx.amount}</td>
-                <td className="py-4">{formatTime(tx.timestamp)}</td>
-                <td className="py-4">
-                  <a
-                    href={`https://solscan.io/tx/${tx.hash}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center text-[#22CCEE] hover:underline"
-                  >
-                    {tx.hash}
-                    <ExternalLink className="ml-1 h-3 w-3" />
-                  </a>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   )
-}
-
-function StatusBadge({ status }: { status: string }) {
-  let bgColor = ""
-  let textColor = ""
-  let icon = null
-
-  switch (status) {
-    case "success":
-      bgColor = "bg-[#1E3323]"
-      textColor = "text-[#A4D756]"
-      icon = <Check className="h-3 w-3 mr-1" />
-      break
-    case "pending":
-      bgColor = "bg-[#332E1A]"
-      textColor = "text-[#F9CB40]"
-      icon = <Clock className="h-3 w-3 mr-1" />
-      break
-    case "failed":
-      bgColor = "bg-[#331A1A]"
-      textColor = "text-[#E57676]"
-      icon = <X className="h-3 w-3 mr-1" />
-      break
-  }
-
-  return (
-    <span className={`inline-flex items-center px-2 py-1 rounded-md ${bgColor} ${textColor} text-xs`}>
-      {icon}
-      <span className="capitalize">{status}</span>
-    </span>
-  )
-}
-
-function FilterButton({
-  children,
-  active,
-  onClick,
-}: {
-  children: React.ReactNode
-  active: boolean
-  onClick: () => void
-}) {
-  return (
-    <button
-      className={`px-3 py-1 rounded-md text-sm ${
-        active ? "bg-[#22CCEE] text-[#0C0C0C]" : "bg-[#1d1d1c] text-[#707070] hover:bg-[#30302e]"
-      }`}
-      onClick={onClick}
-    >
-      {children}
-    </button>
-  )
-}
-
-function formatTime(timestamp: number): string {
-  const now = Date.now()
-  const diff = now - timestamp
-
-  if (diff < 60000) {
-    return "Just now"
-  } else if (diff < 3600000) {
-    return `${Math.floor(diff / 60000)}m ago`
-  } else if (diff < 86400000) {
-    return `${Math.floor(diff / 3600000)}h ago`
-  } else {
-    return `${Math.floor(diff / 86400000)}d ago`
-  }
 }

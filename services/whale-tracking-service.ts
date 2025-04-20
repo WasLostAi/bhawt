@@ -1,221 +1,187 @@
-import { ENV } from "@/lib/env"
+// Mock implementation of the whale tracking service
 
-export interface WhaleTransaction {
+interface WhaleTransaction {
   id: string
-  walletAddress: string
-  tokenAddress: string
-  tokenSymbol: string
-  tokenName: string
-  amount: string
+  wallet: string
+  token: string
+  amount: number
   usdValue: number
-  transactionType: "buy" | "sell" | "transfer"
+  type: "buy" | "sell"
   timestamp: number
-  txHash: string
 }
 
-export interface WhaleWallet {
+interface WhaleWallet {
   address: string
-  label?: string
+  label: string | null
   totalValue: number
-  transactions24h: number
-  volume24h: number
-  lastActive: number
+  recentTransactions: number
+  tokens: { symbol: string; balance: number; usdValue: number }[]
 }
 
 export interface WhaleSignal {
-  id: string
-  tokenAddress: string
-  tokenSymbol: string
-  tokenName: string
-  signalType: "accumulation" | "distribution" | "large_buy" | "large_sell"
+  tokenMint: string
   confidence: number
-  whaleCount: number
-  volumeChange24h: number
-  timestamp: number
+  isCoordinated: boolean
+  transactionCount: number
 }
 
-// Mock data for development
-const mockTransactions: WhaleTransaction[] = [
-  {
-    id: "tx1",
-    walletAddress: "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263",
-    tokenAddress: "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263",
-    tokenSymbol: "BONK",
-    tokenName: "Bonk",
-    amount: "15,000,000",
-    usdValue: 25000,
-    transactionType: "buy",
-    timestamp: Date.now() - 1800000, // 30 minutes ago
-    txHash: "5xGh7Uz9PQzXcXz5VRk6FjZpjYhzMeWHY2XnVZ1yLsDB",
-  },
-  {
-    id: "tx2",
-    walletAddress: "EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm",
-    tokenAddress: "EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm",
-    tokenSymbol: "WIF",
-    tokenName: "Dogwifhat",
-    amount: "50,000",
-    usdValue: 75000,
-    transactionType: "sell",
-    timestamp: Date.now() - 3600000, // 1 hour ago
-    txHash: "8jKl3Mn7RqWz2VbxpqL9h6JyN4eD5TzQXcFsGpKL1mNp",
-  },
-  {
-    id: "tx3",
-    walletAddress: "7kbnb9z9PJVt9wUVe6TzJez3eSVP7dZEL9h6Gqh3zHAE",
-    tokenAddress: "7kbnb9z9PJVt9wUVe6TzJez3eSVP7dZEL9h6Gqh3zHAE",
-    tokenSymbol: "JTO",
-    tokenName: "Jito",
-    amount: "10,000",
-    usdValue: 45000,
-    transactionType: "transfer",
-    timestamp: Date.now() - 7200000, // 2 hours ago
-    txHash: "2qWe4Rt5YuJpL8Z9XcVb3N4mKsFgH6TyWqD7JpRzxV5A",
-  },
-  {
-    id: "tx4",
-    walletAddress: "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263",
-    tokenAddress: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
-    tokenSymbol: "USDC",
-    tokenName: "USD Coin",
-    amount: "100,000",
-    usdValue: 100000,
-    transactionType: "buy",
-    timestamp: Date.now() - 10800000, // 3 hours ago
-    txHash: "9aB8cD7eF6gH5iJ4kL3mN2oP1qR0sT9uV8wX7yZ6aB5c",
-  },
-  {
-    id: "tx5",
-    walletAddress: "EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm",
-    tokenAddress: "So11111111111111111111111111111111111111112",
-    tokenSymbol: "SOL",
-    tokenName: "Solana",
-    amount: "5,000",
-    usdValue: 500000,
-    transactionType: "sell",
-    timestamp: Date.now() - 14400000, // 4 hours ago
-    txHash: "1dE2fG3hI4jK5lM6nO7pQ8rS9tU0vW1xY2zZ3aB4cD5e",
-  },
-]
-
-const mockWallets: WhaleWallet[] = [
-  {
-    address: "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263",
-    label: "Whale Alpha",
-    totalValue: 15000000,
-    transactions24h: 12,
-    volume24h: 2500000,
-    lastActive: Date.now() - 1800000, // 30 minutes ago
-  },
-  {
-    address: "EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm",
-    label: "Whale Beta",
-    totalValue: 8500000,
-    transactions24h: 8,
-    volume24h: 1200000,
-    lastActive: Date.now() - 3600000, // 1 hour ago
-  },
-  {
-    address: "7kbnb9z9PJVt9wUVe6TzJez3eSVP7dZEL9h6Gqh3zHAE",
-    totalValue: 5200000,
-    transactions24h: 5,
-    volume24h: 800000,
-    lastActive: Date.now() - 7200000, // 2 hours ago
-  },
-]
-
-const mockSignals: WhaleSignal[] = [
-  {
-    id: "sig1",
-    tokenAddress: "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263",
-    tokenSymbol: "BONK",
-    tokenName: "Bonk",
-    signalType: "accumulation",
-    confidence: 85,
-    whaleCount: 3,
-    volumeChange24h: 25,
-    timestamp: Date.now() - 1800000, // 30 minutes ago
-  },
-  {
-    id: "sig2",
-    tokenAddress: "EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm",
-    tokenSymbol: "WIF",
-    tokenName: "Dogwifhat",
-    signalType: "distribution",
-    confidence: 70,
-    whaleCount: 2,
-    volumeChange24h: -15,
-    timestamp: Date.now() - 3600000, // 1 hour ago
-  },
-  {
-    id: "sig3",
-    tokenAddress: "7kbnb9z9PJVt9wUVe6TzJez3eSVP7dZEL9h6Gqh3zHAE",
-    tokenSymbol: "JTO",
-    tokenName: "Jito",
-    signalType: "large_buy",
-    confidence: 90,
-    whaleCount: 1,
-    volumeChange24h: 40,
-    timestamp: Date.now() - 7200000, // 2 hours ago
-  },
-]
-
-export class WhaleTrackingService {
-  private enableWhaleTracking: boolean
-  private minTransactionValue: number
+class WhaleTrackingService {
+  private transactions: WhaleTransaction[] = []
+  private wallets: WhaleWallet[] = []
+  private actedTokens: Set<string> = new Set()
 
   constructor() {
-    this.enableWhaleTracking = ENV.get("NEXT_PUBLIC_ENABLE_WHALE_TRACKING", false)
-    this.minTransactionValue = 10000 // Default $10,000 minimum to track
+    // Initialize with some mock data
+    this.transactions = [
+      {
+        id: "tx1",
+        wallet: "8xDrJGJ2VBaqBdUUqYG8jBxCULSxUgwxXjQRH9YQJjLL",
+        token: "BONK",
+        amount: 250000000,
+        usdValue: 25000,
+        type: "buy",
+        timestamp: Date.now() - 300000,
+      },
+      {
+        id: "tx2",
+        wallet: "7Q2afV64in6N6SeZsAAB81TJzwDoD6zpqmHkzi9Dcavn",
+        token: "WIF",
+        amount: 50000,
+        usdValue: 15000,
+        type: "sell",
+        timestamp: Date.now() - 600000,
+      },
+      {
+        id: "tx3",
+        wallet: "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263",
+        token: "JTO",
+        amount: 75000,
+        usdValue: 45000,
+        type: "buy",
+        timestamp: Date.now() - 900000,
+      },
+    ]
+
+    this.wallets = [
+      {
+        address: "8xDrJGJ2VBaqBdUUqYG8jBxCULSxUgwxXjQRH9YQJjLL",
+        label: "Whale 1",
+        totalValue: 1250000,
+        recentTransactions: 12,
+        tokens: [
+          { symbol: "SOL", balance: 5000, usdValue: 750000 },
+          { symbol: "BONK", balance: 25000000000, usdValue: 250000 },
+          { symbol: "JTO", balance: 150000, usdValue: 250000 },
+        ],
+      },
+      {
+        address: "7Q2afV64in6N6SeZsAAB81TJzwDoD6zpqmHkzi9Dcavn",
+        label: "Whale 2",
+        totalValue: 850000,
+        recentTransactions: 8,
+        tokens: [
+          { symbol: "SOL", balance: 3500, usdValue: 525000 },
+          { symbol: "WIF", balance: 1250000, usdValue: 325000 },
+        ],
+      },
+    ]
   }
 
-  /**
-   * Check if whale tracking is enabled
-   * @returns True if whale tracking is enabled
-   */
-  isEnabled(): boolean {
-    return this.enableWhaleTracking
-  }
-
-  /**
-   * Get recent whale transactions
-   * @param limit Maximum number of transactions to return
-   * @returns List of whale transactions
-   */
+  // Get recent whale transactions
   async getRecentTransactions(limit = 10): Promise<WhaleTransaction[]> {
-    // Use mock data instead of API call
-    return mockTransactions.slice(0, limit)
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        resolve(this.transactions.slice(0, limit))
+      }, 500)
+    })
   }
 
-  /**
-   * Get whale wallets
-   * @param limit Maximum number of wallets to return
-   * @returns List of whale wallets
-   */
-  async getWhaleWallets(limit = 10): Promise<WhaleWallet[]> {
-    // Use mock data instead of API call
-    return mockWallets.slice(0, limit)
+  // Get top whale wallets
+  async getTopWallets(limit = 5): Promise<WhaleWallet[]> {
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        resolve(this.wallets.slice(0, limit))
+      }, 500)
+    })
   }
 
-  /**
-   * Get whale signals
-   * @param limit Maximum number of signals to return
-   * @returns List of whale signals
-   */
-  async getWhaleSignals(limit = 5): Promise<WhaleSignal[]> {
-    // Use mock data instead of API call
-    return mockSignals.slice(0, limit)
+  // Track a new wallet
+  async trackWallet(address: string): Promise<boolean> {
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        // Check if wallet already exists
+        const exists = this.wallets.some((w) => w.address === address)
+
+        if (!exists) {
+          this.wallets.push({
+            address,
+            label: null,
+            totalValue: Math.random() * 1000000,
+            recentTransactions: Math.floor(Math.random() * 20),
+            tokens: [{ symbol: "SOL", balance: Math.random() * 5000, usdValue: Math.random() * 750000 }],
+          })
+        }
+
+        resolve(true)
+      }, 800)
+    })
   }
 
-  /**
-   * Track transactions for a specific token
-   * @param tokenAddress Token address to track
-   * @returns True if tracking was successful
-   */
-  async trackToken(tokenAddress: string): Promise<boolean> {
-    // Mock implementation
-    console.log(`Tracking token: ${tokenAddress}`)
-    return true
+  // Set a label for a wallet
+  async setWalletLabel(address: string, label: string): Promise<boolean> {
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        const wallet = this.wallets.find((w) => w.address === address)
+
+        if (wallet) {
+          wallet.label = label
+          resolve(true)
+        } else {
+          resolve(false)
+        }
+      }, 300)
+    })
+  }
+
+  // Check token safety
+  async checkTokenSafety(tokenMint: string): Promise<{ trustScore: number; isRugPull: boolean }> {
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        // Mock implementation: return a random trust score
+        const trustScore = Math.floor(Math.random() * 100)
+        const isRugPull = Math.random() < 0.1 // 10% chance of being a rug pull
+        resolve({ trustScore, isRugPull })
+      }, 400)
+    })
+  }
+
+  // Get whale signal
+  async getWhaleSignal(tokenMint: string): Promise<WhaleSignal | null> {
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        if (this.actedTokens.has(tokenMint)) {
+          resolve(null)
+          return
+        }
+
+        // Mock implementation: return a random signal
+        const confidence = Math.floor(Math.random() * 100)
+        const isCoordinated = Math.random() < 0.5
+        const transactionCount = Math.floor(Math.random() * 10)
+
+        resolve({
+          tokenMint,
+          confidence,
+          isCoordinated,
+          transactionCount,
+        })
+      }, 600)
+    })
+  }
+
+  // Mark token as acted upon
+  markTokenAsActed(tokenMint: string): void {
+    this.actedTokens.add(tokenMint)
   }
 }
 
